@@ -73,6 +73,17 @@ export default function SubjectDetail() {
 
   const sortedChapters = [...chapters].sort((a, b) => (a.order || 0) - (b.order || 0))
 
+  const moveChapter = async (chapter, delta) => {
+    const i = sortedChapters.findIndex((c) => c.id === chapter.id)
+    const j = i + delta
+    if (i < 0 || j < 0 || j >= sortedChapters.length) return
+    await Promise.all([
+      db.update('chapters', sortedChapters[i].id, { order: j + 1 }),
+      db.update('chapters', sortedChapters[j].id, { order: i + 1 }),
+    ])
+    await loadChapters()
+  }
+
   if (subjectLoading) {
     return (
       <div className="space-y-4">
@@ -124,6 +135,10 @@ export default function SubjectDetail() {
                 setChapterDialogOpen(true)
               }}
               onDelete={() => setDeletingChapter(chapter)}
+              onMoveUp={() => moveChapter(chapter, -1)}
+              onMoveDown={() => moveChapter(chapter, 1)}
+              canMoveUp={index > 0}
+              canMoveDown={index < sortedChapters.length - 1}
             />
           ))}
         </div>

@@ -3,10 +3,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { db } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import ChapterFiles from "./ChapterFiles";
 import LectureAccordion from "./LectureAccordion";
 import SectionAccordion from "./SectionAccordion";
 
 export default function ChapterAccordion({ chapter, info }) {
+  const kind = chapter.kind || "lectures";
   const [expanded, setExpanded] = useState(false);
   const [lectures, setLectures] = useState([]);
   const [sections, setSections] = useState([]);
@@ -15,6 +17,11 @@ export default function ChapterAccordion({ chapter, info }) {
 
   useEffect(() => {
     if (!expanded || loaded.current) return;
+    if (kind === "files") {
+      loaded.current = true;
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     Promise.all([
@@ -33,7 +40,7 @@ export default function ChapterAccordion({ chapter, info }) {
     return () => {
       cancelled = true;
     };
-  }, [expanded, chapter.id]);
+  }, [expanded, chapter.id, kind]);
 
   const sortedLectures = [...lectures].sort(
     (a, b) => (a.order || 0) - (b.order || 0),
@@ -84,6 +91,8 @@ export default function ChapterAccordion({ chapter, info }) {
                     <Skeleton key={item} className="h-8 bg-muted rounded" />
                   ))}
                 </div>
+              ) : kind === "files" ? (
+                <ChapterFiles chapterId={chapter.id} info={info} />
               ) : isEmpty ? (
                 <p className="text-xs text-muted-foreground italic pt-2">
                   No content yet.

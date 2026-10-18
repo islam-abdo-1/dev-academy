@@ -36,12 +36,13 @@ const SEMESTER_LABELS = { "sem-1": "ترم 1", "sem-2": "ترم 2" };
 const scopeMatches = (value, current) =>
   !value || !current || value === current;
 
-function filterTasks(tasks, { major, year, semester }) {
+function filterTasks(tasks, { major, year, semester, group }) {
   return tasks.filter(
     (task) =>
       scopeMatches(task.major, major) &&
       scopeMatches(task.year, year) &&
-      scopeMatches(task.semester, semester),
+      scopeMatches(task.semester, semester) &&
+      scopeMatches(task.group_name, group),
   );
 }
 
@@ -110,6 +111,7 @@ export default function NotificationBell({ userEmail }) {
     major: "all",
     year: "all",
     semester: "all",
+    group: "all",
   });
   const containerRef = useRef(null);
 
@@ -195,7 +197,11 @@ export default function NotificationBell({ userEmail }) {
         major: filters.major === "all" ? "" : filters.major,
         year: filters.year === "all" ? "" : filters.year,
         semester: filters.semester === "all" ? "" : filters.semester,
+        group: filters.group === "all" ? "" : filters.group,
       };
+  const groupOptions = [
+    ...new Set(tasks.map((task) => task.group_name).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b, "ar", { numeric: true }));
   const visibleTasks = filterTasks(tasks, scope).sort(sortTasks);
   const profileScopeLabel =
     [
@@ -230,7 +236,7 @@ export default function NotificationBell({ userEmail }) {
       </button>
       {open && (
         <div
-          className="absolute right-0 top-12 w-80 max-h-96 overflow-hidden rounded-xl border border-border/50 shadow-2xl z-50 flex flex-col"
+          className="fixed inset-x-3 top-[72px] z-50 w-auto max-w-[calc(100vw-24px)] max-h-[80vh] overflow-hidden rounded-xl border border-border/50 shadow-2xl flex flex-col sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-80 sm:max-w-none sm:max-h-96"
           style={{
             background: "hsl(240,30%,6%)",
             boxShadow:
@@ -419,6 +425,24 @@ export default function NotificationBell({ userEmail }) {
                       <SelectItem value="sem-2">ترم 2</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select
+                    value={filters.group}
+                    onValueChange={(value) =>
+                      setFilters((current) => ({ ...current, group: value }))
+                    }
+                  >
+                    <SelectTrigger className="bg-input border-border text-xs h-8">
+                      <SelectValue placeholder="الجروب" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border max-h-48">
+                      <SelectItem value="all">كل الجروبات</SelectItem>
+                      {groupOptions.map((group) => (
+                        <SelectItem key={group} value={group}>
+                          {`جروب ${group}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <div className="overflow-y-auto flex-1">
@@ -470,7 +494,11 @@ export default function NotificationBell({ userEmail }) {
                                   : Presentation
                               }
                             >
-                              {task.item_name}
+                              {task.item_type === "section"
+                                ? `سيكشن ${task.item_name}`
+                                : task.item_type === "lecture"
+                                  ? `محاضرة ${task.item_name}`
+                                  : task.item_name}
                             </TaskChip>
                           )}
                           {task.group_name && (

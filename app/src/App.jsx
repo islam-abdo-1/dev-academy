@@ -17,6 +17,7 @@ import DashboardResources from "./pages/DashboardResources";
 import DashboardTeam from "./pages/DashboardTeam";
 import DashboardSettings from "./pages/DashboardSettings";
 import SubjectDetail from "./pages/SubjectDetail";
+import Legal from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 
 function FullPageLoader() {
@@ -71,6 +72,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
+        <Route path="/privacy" element={<Legal />} />
+        <Route path="/terms" element={<Legal />} />
         <Route path="/:major" element={<BrowseMajor />} />
         <Route path="/:major/:year" element={<BrowseYear />} />
         <Route path="/:major/:year/:sem" element={<BrowseSemester />} />

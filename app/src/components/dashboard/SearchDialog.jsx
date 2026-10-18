@@ -10,6 +10,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { db } from "@/lib/api";
+import { searchResources, searchSubjects } from "@/lib/subjectSearch";
 import { isHtmlItem } from "@/components/browse/ItemRow";
 
 export default function SearchDialog({ open, onClose }) {
@@ -72,7 +73,7 @@ export default function SearchDialog({ open, onClose }) {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const term = query.trim().toLowerCase();
+      const term = query.trim();
       if (!term) {
         setResults({
           subjects: allSubjects.slice(0, 5),
@@ -80,20 +81,8 @@ export default function SearchDialog({ open, onClose }) {
         });
       } else {
         setResults({
-          subjects: allSubjects
-            .filter(
-              (subject) =>
-                subject.name?.toLowerCase().includes(term) ||
-                subject.description?.toLowerCase().includes(term),
-            )
-            .slice(0, 5),
-          resources: allResources
-            .filter(
-              (resource) =>
-                resource.title?.toLowerCase().includes(term) ||
-                resource.description?.toLowerCase().includes(term),
-            )
-            .slice(0, 5),
+          subjects: searchSubjects(allSubjects, term).slice(0, 5),
+          resources: searchResources(allResources, term).slice(0, 5),
         });
       }
       setActiveIndex(0);

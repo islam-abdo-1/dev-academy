@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, ChevronRight, FileText, Search, X } from "lucide-react";
 import { db } from "@/lib/api";
-import { useAuth } from "@/lib/AuthContext";
+import { searchResources, searchSubjects } from "@/lib/subjectSearch";
 import { downloadHref, isHtmlItem } from "@/components/browse/ItemRow";
 
 const MAJOR_LABELS = { ai: "AI", cybersecurity: "Cybersecurity" };
@@ -22,13 +22,12 @@ export default function PublicSearchDialog({ open, onClose }) {
   const inputRef = useRef(null);
   const dialogRef = useRef(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const loadData = async () => {
     setLoading(true);
     const [subjectRows, resourceRows] = await Promise.all([
       db.list("subjects"),
-      user ? db.list("resources") : Promise.resolve([]),
+      db.list("resources"),
     ]).catch(() => [[], []]);
     setSubjects(subjectRows || []);
     setResources(resourceRows || []);
@@ -78,21 +77,12 @@ export default function PublicSearchDialog({ open, onClose }) {
     };
   }, [open, onClose]);
 
-  const term = query.trim().toLowerCase();
+  const term = query.trim();
   const filteredSubjects = term
-    ? subjects.filter(
-        (subject) =>
-          subject.name?.toLowerCase().includes(term) ||
-          subject.description?.toLowerCase().includes(term) ||
-          subject.tags?.some((tag) => tag.toLowerCase().includes(term)),
-      )
+    ? searchSubjects(subjects, term)
     : subjects.slice(0, 6);
   const filteredResources = term
-    ? resources.filter(
-        (resource) =>
-          resource.title?.toLowerCase().includes(term) ||
-          resource.description?.toLowerCase().includes(term),
-      )
+    ? searchResources(resources, term)
     : resources.slice(0, 6);
   const hasResults =
     filteredSubjects.length > 0 || filteredResources.length > 0;
@@ -241,11 +231,6 @@ export default function PublicSearchDialog({ open, onClose }) {
             </div>
           )}
 
-          {!user && !loading && (
-            <p className="px-4 py-3 text-center text-muted-foreground text-xs border-t border-border/30">
-              الموارد الكاملة متاحة بعد تسجيل الدخول
-            </p>
-          )}
         </div>
       </div>
     </div>

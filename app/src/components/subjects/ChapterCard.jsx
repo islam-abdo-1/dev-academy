@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, Layers, Pencil, Plus, Trash2, Video } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { db } from '@/lib/api'
 import ConfirmDialog from './ConfirmDialog'
+import ItemsManager from './ItemsManager'
 import LectureCard from './LectureCard'
 import LectureDialog from './LectureDialog'
 import SectionCard from './SectionCard'
 import SectionDialog from './SectionDialog'
 
-export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelete }) {
+const KIND_LABELS = { lectures: 'محاضرات', sections: 'سكاشن', files: 'ملفات' }
+const KIND_COLORS = { lectures: 'hsl(160,60%,50%)', sections: 'hsl(280,60%,65%)', files: 'hsl(190,100%,50%)' }
+
+export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown }) {
+  const kind = chapter.kind || 'lectures'
   const [expanded, setExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState('lectures')
   const [lectureDialogOpen, setLectureDialogOpen] = useState(false)
   const [editingLecture, setEditingLecture] = useState(null)
   const [deletingLecture, setDeletingLecture] = useState(null)
@@ -39,12 +43,10 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
   }, [chapter.id])
 
   useEffect(() => {
-    if (expanded) loadLectures()
-  }, [expanded, loadLectures])
-
-  useEffect(() => {
-    if (expanded && activeTab === 'sections') loadSections()
-  }, [expanded, activeTab, loadSections])
+    if (!expanded || kind === 'files') return
+    if (kind === 'lectures') loadLectures()
+    loadSections()
+  }, [expanded, kind, loadLectures, loadSections])
 
   const handleCreateLecture = async (data) => {
     await db.create('lectures', { ...data, chapter_id: chapter.id, subject_id: subjectId, order: lectures.length + 1 })
@@ -93,6 +95,17 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
   const sortedLectures = [...lectures].sort((a, b) => (a.order || 0) - (b.order || 0))
   const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0))
 
+  const moveEntry = async (table, list, entry, delta, reload) => {
+    const i = list.findIndex((row) => row.id === entry.id)
+    const j = i + delta
+    if (i < 0 || j < 0 || j >= list.length) return
+    await Promise.all([
+      db.update(table, list[i].id, { order: j + 1 }),
+      db.update(table, list[j].id, { order: i + 1 }),
+    ])
+    await reload()
+  }
+
   return (
     <div
       className="rounded-lg border border-border bg-card overflow-hidden"
@@ -104,13 +117,47 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
             CH {String(index + 1).padStart(2, '0')}
           </span>
           <div>
-            <h3 className="text-foreground font-semibold">{chapter.title}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-foreground font-semibold">{chapter.title}</h3>
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{ color: KIND_COLORS[kind], background: 'rgba(255,255,255,0.05)' }}
+              >
+                {KIND_LABELS[kind]}
+              </span>
+            </div>
             {chapter.description && (
               <p className="text-muted-foreground text-xs mt-0.5 line-clamp-1">{chapter.description}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {onMoveUp && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onMoveUp()
+              }}
+              disabled={!canMoveUp}
+              aria-label="تحريك لأعلى"
+              className="p-2 text-muted-foreground hover:text-primary min-w-[36px] min-h-[36px] flex items-center justify-center rounded disabled:opacity-30 disabled:hover:text-muted-foreground"
+            >
+              <ArrowUp size={13} />
+            </button>
+          )}
+          {onMoveDown && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onMoveDown()
+              }}
+              disabled={!canMoveDown}
+              aria-label="تحريك لأسفل"
+              className="p-2 text-muted-foreground hover:text-primary min-w-[36px] min-h-[36px] flex items-center justify-center rounded disabled:opacity-30 disabled:hover:text-muted-foreground"
+            >
+              <ArrowDown size={13} />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -138,112 +185,112 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
       </div>
       {expanded && (
         <div className="border-t border-border/50 bg-background/30">
-          <div className="flex border-b border-border/30">
-            <button
-              onClick={() => setActiveTab('lectures')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
-              style={{
-                color: activeTab === 'lectures' ? 'hsl(190,100%,50%)' : 'hsl(215,20%,55%)',
-                borderBottom: activeTab === 'lectures' ? '2px solid hsl(190,100%,50%)' : '2px solid transparent',
-              }}
-            >
-              <Video size={12} /> Lectures
-            </button>
-            <button
-              onClick={() => setActiveTab('sections')}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors"
-              style={{
-                color: activeTab === 'sections' ? 'hsl(280,60%,65%)' : 'hsl(215,20%,55%)',
-                borderBottom: activeTab === 'sections' ? '2px solid hsl(280,60%,65%)' : '2px solid transparent',
-              }}
-            >
-              <Layers size={12} /> Sections
-            </button>
-          </div>
           <div className="p-4">
-            {activeTab === 'lectures' && (
+            {kind === 'files' ? (
+              <ItemsManager
+                active={expanded}
+                table="lecture_items"
+                chapterId={chapter.id}
+                subjectId={subjectId}
+                label="الملفات والفيديوهات"
+                addLabel="إضافة ملف"
+                buttonClassName="bg-primary/20 text-primary hover:bg-primary/30 border-primary/30"
+              />
+            ) : (
               <>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-muted-foreground font-medium">Lectures</span>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setEditingLecture(null)
-                      setLectureDialogOpen(true)
-                    }}
-                    className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 h-7 text-xs px-3"
-                  >
-                    <Plus size={12} className="mr-1" /> Add Lecture
-                  </Button>
-                </div>
-                {lecturesLoading ? (
-                  <div className="space-y-2">
-                    {[1, 2].map((n) => (
-                      <Skeleton key={n} className="h-14 bg-muted rounded" />
-                    ))}
-                  </div>
-                ) : sortedLectures.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-4">No lectures yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {sortedLectures.map((lecture, lectureIndex) => (
-                      <LectureCard
-                        key={lecture.id}
-                        lecture={lecture}
-                        index={lectureIndex}
-                        onEdit={() => {
-                          setEditingLecture(lecture)
+                {kind === 'lectures' && (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-muted-foreground font-medium">Lectures</span>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setEditingLecture(null)
                           setLectureDialogOpen(true)
                         }}
-                        onDelete={() => setDeletingLecture(lecture)}
-                      />
-                    ))}
-                  </div>
+                        className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 h-7 text-xs px-3"
+                      >
+                        <Plus size={12} className="mr-1" /> Add Lecture
+                      </Button>
+                    </div>
+                    {lecturesLoading ? (
+                      <div className="space-y-2">
+                        {[1, 2].map((n) => (
+                          <Skeleton key={n} className="h-14 bg-muted rounded" />
+                        ))}
+                      </div>
+                    ) : sortedLectures.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-4">No lectures yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {sortedLectures.map((lecture, lectureIndex) => (
+                          <LectureCard
+                            key={lecture.id}
+                            lecture={lecture}
+                            index={lectureIndex}
+                            onEdit={() => {
+                              setEditingLecture(lecture)
+                              setLectureDialogOpen(true)
+                            }}
+                            onDelete={() => setDeletingLecture(lecture)}
+                            onMoveUp={() => moveEntry('lectures', sortedLectures, lecture, -1, loadLectures)}
+                            onMoveDown={() => moveEntry('lectures', sortedLectures, lecture, 1, loadLectures)}
+                            canMoveUp={lectureIndex > 0}
+                            canMoveDown={lectureIndex < sortedLectures.length - 1}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-            {activeTab === 'sections' && (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-muted-foreground font-medium">Sections</span>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setEditingSection(null)
-                      setSectionDialogOpen(true)
-                    }}
-                    className="h-7 text-xs px-3 border"
-                    style={{
-                      background: 'hsla(280,60%,65%,0.15)',
-                      color: 'hsl(280,60%,65%)',
-                      borderColor: 'hsla(280,60%,65%,0.3)',
-                    }}
-                  >
-                    <Plus size={12} className="mr-1" /> Add Section
-                  </Button>
-                </div>
-                {sectionsLoading ? (
-                  <div className="space-y-2">
-                    {[1, 2].map((n) => (
-                      <Skeleton key={n} className="h-14 bg-muted rounded" />
-                    ))}
-                  </div>
-                ) : sortedSections.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-4">No sections yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {sortedSections.map((section, sectionIndex) => (
-                      <SectionCard
-                        key={section.id}
-                        section={section}
-                        index={sectionIndex}
-                        onEdit={() => {
-                          setEditingSection(section)
+                {(kind === 'sections' || sortedSections.length > 0) && (
+                  <div className={kind === 'lectures' ? 'mt-5 pt-4 border-t border-border/30' : ''}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-muted-foreground font-medium">Sections</span>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setEditingSection(null)
                           setSectionDialogOpen(true)
                         }}
-                        onDelete={() => setDeletingSection(section)}
-                      />
-                    ))}
+                        className="h-7 text-xs px-3 border"
+                        style={{
+                          background: 'hsla(280,60%,65%,0.15)',
+                          color: 'hsl(280,60%,65%)',
+                          borderColor: 'hsla(280,60%,65%,0.3)',
+                        }}
+                      >
+                        <Plus size={12} className="mr-1" /> Add Section
+                      </Button>
+                    </div>
+                    {sectionsLoading ? (
+                      <div className="space-y-2">
+                        {[1, 2].map((n) => (
+                          <Skeleton key={n} className="h-14 bg-muted rounded" />
+                        ))}
+                      </div>
+                    ) : sortedSections.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-4">No sections yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {sortedSections.map((section, sectionIndex) => (
+                          <SectionCard
+                            key={section.id}
+                            section={section}
+                            index={sectionIndex}
+                            onEdit={() => {
+                              setEditingSection(section)
+                              setSectionDialogOpen(true)
+                            }}
+                            onDelete={() => setDeletingSection(section)}
+                            onMoveUp={() => moveEntry('sections', sortedSections, section, -1, loadSections)}
+                            onMoveDown={() => moveEntry('sections', sortedSections, section, 1, loadSections)}
+                            canMoveUp={sectionIndex > 0}
+                            canMoveDown={sectionIndex < sortedSections.length - 1}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </>

@@ -38,7 +38,7 @@ export const NAV_ITEMS = [
     label: 'Settings',
     icon: Settings,
     href: '/dashboard/settings',
-    roles: ['SUPER_ADMIN'],
+    roles: ['ADMIN', 'SUPER_ADMIN'],
   },
 ]
 

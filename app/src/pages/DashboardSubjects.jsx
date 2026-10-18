@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { searchSubjects } from "@/lib/subjectSearch";
 
 export default function DashboardSubjects() {
   const { user, isStaff } = useAuth();
@@ -105,11 +106,7 @@ export default function DashboardSubjects() {
     setEditingSubject(null);
   };
 
-  const filteredSubjects = subjects.filter(
-    (subject) =>
-      subject.name?.toLowerCase().includes(search.toLowerCase()) ||
-      subject.description?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredSubjects = searchSubjects(subjects, search);
 
   return (
     <div>

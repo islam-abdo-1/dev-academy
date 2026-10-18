@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ExternalLink, GraduationCap } from "lucide-react";
 import { db } from "@/lib/api";
 import ConnectionError from "@/components/ConnectionError";
 import {
@@ -26,6 +26,7 @@ export default function BrowseSemester() {
   const search = usePublicSearch();
   const info = getMajorInfo(major);
   const [subjects, setSubjects] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -57,6 +58,18 @@ export default function BrowseSemester() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    db.list("resources")
+      .then((rows) => {
+        if (!cancelled) setCourses((rows || []).filter((row) => !row.subject_id));
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -131,6 +144,55 @@ export default function BrowseSemester() {
               </motion.div>
             ))}
           </div>
+        )}
+        {courses.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mt-10"
+          >
+            <p className="text-xs font-mono mb-1" style={{ color: info.color }}>
+              EXTRA COURSES
+            </p>
+            <h2 className="text-2xl font-bold text-foreground mb-4">
+              كورسات إضافية
+            </h2>
+            <div className="space-y-3">
+              {courses.map((course) => (
+                <a
+                  key={course.id}
+                  href={course.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-white/5"
+                  style={{
+                    background: "hsl(240, 30%, 7%)",
+                    border: "1px solid hsl(var(--border))",
+                  }}
+                >
+                  <div
+                    className="p-2 rounded-lg flex-shrink-0"
+                    style={{ background: "hsla(190,100%,50%,0.1)" }}
+                  >
+                    <GraduationCap size={18} style={{ color: info.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-foreground font-semibold">
+                      {course.title.replace(/\s*-\s*كورس كامل\s*$/, "")}
+                    </p>
+                    <p className="text-muted-foreground text-sm mt-0.5">
+                      كورس كامل — فيديوهات مسجلة
+                    </p>
+                  </div>
+                  <ExternalLink
+                    size={16}
+                    className="text-muted-foreground flex-shrink-0"
+                  />
+                </a>
+              ))}
+            </div>
+          </motion.section>
         )}
       </main>
       <PublicFooter />

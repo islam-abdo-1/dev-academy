@@ -5,6 +5,7 @@ import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import HtmlViewer from "./HtmlViewer";
+import MediaViewer from "./MediaViewer";
 import ItemRow from "./ItemRow";
 
 export default function LectureItems({ lectureId, info }) {
@@ -13,6 +14,7 @@ export default function LectureItems({ lectureId, info }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewerItem, setViewerItem] = useState(null);
+  const [mediaItem, setMediaItem] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -71,6 +73,7 @@ export default function LectureItems({ lectureId, info }) {
             item={item}
             color={info.color}
             onOpenHtml={setViewerItem}
+            onOpenMedia={setMediaItem}
           />
         ))}
       <HtmlViewer
@@ -78,6 +81,11 @@ export default function LectureItems({ lectureId, info }) {
         url={viewerItem?.url}
         title={viewerItem?.title}
         onClose={() => setViewerItem(null)}
+      />
+      <MediaViewer
+        open={!!mediaItem}
+        item={mediaItem}
+        onClose={() => setMediaItem(null)}
       />
     </div>
   );

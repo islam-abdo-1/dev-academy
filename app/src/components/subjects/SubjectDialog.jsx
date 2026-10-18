@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { MAJOR_LABELS, YEAR_LABELS, SEMESTER_LABELS } from './labels'
 
-const EMPTY_FORM = { name: '', description: '', major: '', year: '', semester: '', credits: '' }
+const EMPTY_FORM = { name: '', english_name: '', code: '', description: '', major: '', year: '', semester: '', credits: '' }
 
 export default function SubjectDialog({ open, onClose, editing, onSubmit }) {
   const [form, setForm] = useState(EMPTY_FORM)
@@ -17,6 +17,8 @@ export default function SubjectDialog({ open, onClose, editing, onSubmit }) {
       editing
         ? {
             name: editing.name || '',
+            english_name: editing.english_name || '',
+            code: editing.code || '',
             description: editing.description || '',
             major: editing.major || '',
             year: editing.year || '',
@@ -48,6 +50,20 @@ export default function SubjectDialog({ open, onClose, editing, onSubmit }) {
             required
             className="bg-input border-border"
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              placeholder="English name (اختياري)"
+              value={form.english_name}
+              onChange={(e) => setField('english_name', e.target.value)}
+              className="bg-input border-border"
+            />
+            <Input
+              placeholder="Code مثال: CS207"
+              value={form.code}
+              onChange={(e) => setField('code', e.target.value)}
+              className="bg-input border-border"
+            />
+          </div>
           <Textarea
             placeholder="Description (optional)"
             value={form.description}
