@@ -4,6 +4,7 @@ import { Menu, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
+import UserAvatar from "@/components/UserAvatar";
 import PublicSearchDialog from "./PublicSearchDialog";
 
 const NAV_LINKS = [
@@ -14,18 +15,6 @@ const NAV_LINKS = [
 
 const BUTTON_CLASS =
   "bg-primary text-primary-foreground px-4 py-2 text-sm font-medium opacity-100 rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow hover:bg-primary/90 h-9 hover:brightness-110";
-
-function getInitials(name, email) {
-  const source = (name || email || "").trim();
-  if (!source) return "؟";
-  return source
-    .split(/[\s@._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-}
 
 export default function PublicHeader({ onSearchOpen }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -164,15 +153,11 @@ export default function PublicHeader({ onSearchOpen }) {
                 aria-label="ملفي الشخصي"
                 className="w-9 h-9 rounded-full overflow-hidden border border-primary/40 bg-primary/10 flex items-center justify-center text-primary text-xs font-semibold hover:brightness-125 transition-all"
               >
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={profile?.full_name || "Profile"}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  getInitials(profile?.full_name, profile?.email || user.email)
-                )}
+                <UserAvatar
+                  src={profile?.avatar_url}
+                  alt={profile?.full_name || "Profile"}
+                  className="w-full h-full object-cover"
+                />
               </Link>
             )}
 

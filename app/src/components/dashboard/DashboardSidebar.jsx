@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { db } from '@/lib/api'
 import { useAuth } from '@/lib/AuthContext'
+import UserAvatar from '@/components/UserAvatar'
 import RoleBadge from './RoleBadge'
 
 export const NAV_ITEMS = [
@@ -72,15 +73,6 @@ export default function DashboardSidebar({ role, user, mobileOpen, onCloseMobile
 
   const unreadCount = unreadMessages.length || 0
 
-  const initials = (fullName) =>
-    fullName
-      ? fullName
-          .split(' ')
-          .map((part) => part[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2)
-      : '?'
 
   const isActive = (href) =>
     href === '/dashboard'
@@ -157,17 +149,11 @@ export default function DashboardSidebar({ role, user, mobileOpen, onCloseMobile
           title="View Profile"
         >
           <div className="relative flex-shrink-0">
-            {user?.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt="Avatar"
-                className="w-9 h-9 rounded-full object-cover border border-primary/30"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-semibold">
-                {initials(user?.full_name)}
-              </div>
-            )}
+            <UserAvatar
+              src={user?.avatar_url}
+              alt="Avatar"
+              className="w-9 h-9 rounded-full object-cover border border-primary/30"
+            />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive flex items-center justify-center text-[9px] font-bold text-white">
                 {unreadCount > 9 ? '9+' : unreadCount}

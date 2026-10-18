@@ -9,6 +9,7 @@ import ConfirmDialog from '@/components/subjects/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { db } from '@/lib/api'
+import { useAsyncGuard } from '@/lib/useAsyncGuard'
 
 export default function SubjectDetail() {
   const { subjectId } = useParams()
@@ -19,6 +20,7 @@ export default function SubjectDetail() {
   const [subjectLoading, setSubjectLoading] = useState(true)
   const [chapters, setChapters] = useState([])
   const [chaptersLoading, setChaptersLoading] = useState(true)
+  const { run, busy } = useAsyncGuard()
 
   const loadSubject = useCallback(async () => {
     if (!subjectId) return
@@ -44,27 +46,30 @@ export default function SubjectDetail() {
     loadChapters()
   }, [loadChapters])
 
-  const handleCreateChapter = async (data) => {
-    await db.create('chapters', { ...data, subject_id: subjectId, order: chapters.length + 1 })
-    await loadChapters()
-    toast.success('Chapter created')
-    setChapterDialogOpen(false)
-  }
+  const handleCreateChapter = (data) =>
+    run(async () => {
+      await db.create('chapters', { ...data, subject_id: subjectId, order: chapters.length + 1 })
+      await loadChapters()
+      toast.success('Chapter created')
+      setChapterDialogOpen(false)
+    })
 
-  const handleUpdateChapter = async (data) => {
-    await db.update('chapters', editingChapter.id, data)
-    await loadChapters()
-    toast.success('Chapter updated')
-    setChapterDialogOpen(false)
-    setEditingChapter(null)
-  }
+  const handleUpdateChapter = (data) =>
+    run(async () => {
+      await db.update('chapters', editingChapter.id, data)
+      await loadChapters()
+      toast.success('Chapter updated')
+      setChapterDialogOpen(false)
+      setEditingChapter(null)
+    })
 
-  const handleDeleteChapter = async () => {
-    await db.remove('chapters', deletingChapter.id)
-    await loadChapters()
-    toast.success('Chapter deleted')
-    setDeletingChapter(null)
-  }
+  const handleDeleteChapter = () =>
+    run(async () => {
+      await db.remove('chapters', deletingChapter.id)
+      await loadChapters()
+      toast.success('Chapter deleted')
+      setDeletingChapter(null)
+    })
 
   const handleAddChapter = () => {
     setEditingChapter(null)
@@ -150,6 +155,7 @@ export default function SubjectDetail() {
           setEditingChapter(null)
         }}
         editing={editingChapter}
+        submitting={busy}
         onSubmit={(data) => (editingChapter ? handleUpdateChapter(data) : handleCreateChapter(data))}
       />
       <ConfirmDialog
@@ -158,6 +164,7 @@ export default function SubjectDetail() {
         title="Delete Chapter"
         description={`Are you sure you want to delete "${deletingChapter?.title}"?`}
         onConfirm={handleDeleteChapter}
+        busy={busy}
       />
     </div>
   )

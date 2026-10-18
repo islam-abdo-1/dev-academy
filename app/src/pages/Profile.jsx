@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import ConnectionError from "@/components/ConnectionError";
+import UserAvatar from "@/components/UserAvatar";
 
 function Starfield() {
   const canvasRef = useRef(null);
@@ -214,16 +215,6 @@ export default function Profile() {
     }
   };
 
-  const initials = (name) =>
-    name
-      ? name
-          .split(" ")
-          .map((word) => word[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2)
-      : "?";
-
   const majorBadge = ((major) =>
     major === "ai"
       ? {
@@ -316,28 +307,15 @@ export default function Profile() {
             <Card className="neon-card bg-card">
               <CardContent className="pt-6 flex flex-col items-center gap-4">
                 <div className="relative">
-                  {profile.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt="Avatar"
-                      className="w-24 h-24 rounded-full object-cover"
-                      style={{
-                        border: "2px solid hsl(190,100%,50%)",
-                        boxShadow: "0 0 16px hsla(190,100%,50%,0.3)",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      className="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold text-white"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, hsl(190,100%,50%), hsl(160,60%,50%))",
-                        border: "2px solid hsl(190,100%,50%)",
-                      }}
-                    >
-                      {initials(profile.full_name)}
-                    </div>
-                  )}
+                  <UserAvatar
+                    src={profile.avatar_url}
+                    alt="Avatar"
+                    className="w-24 h-24 rounded-full object-cover"
+                    style={{
+                      border: "2px solid hsl(190,100%,50%)",
+                      boxShadow: "0 0 16px hsla(190,100%,50%,0.3)",
+                    }}
+                  />
                   <label
                     className="absolute bottom-0 right-0 cursor-pointer w-8 h-8 rounded-full flex items-center justify-center"
                     style={{ background: "hsl(190,100%,50%)" }}

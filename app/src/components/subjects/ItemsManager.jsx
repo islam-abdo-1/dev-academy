@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/api";
+import { useAsyncGuard } from "@/lib/useAsyncGuard";
 import ConfirmDialog from "./ConfirmDialog";
 import ItemDialog from "./ItemDialog";
 import ItemTypeIcon from "./ItemTypeIcon";
@@ -30,6 +31,7 @@ export default function ItemsManager({
   const [itemsLoading, setItemsLoading] = useState(false);
   const [viewerItem, setViewerItem] = useState(null);
   const [mediaItem, setMediaItem] = useState(null);
+  const { run, busy } = useAsyncGuard();
 
   const loadItems = useCallback(async () => {
     setItemsLoading(true);
@@ -46,34 +48,37 @@ export default function ItemsManager({
     if (active) loadItems();
   }, [active, loadItems]);
 
-  const handleCreateItem = async (data) => {
-    const row = {
-      ...data,
-      chapter_id: chapterId,
-      subject_id: subjectId,
-      order: items.length + 1,
-    };
-    if (parentField) row[parentField] = parentId;
-    await db.create(table, row);
-    await loadItems();
-    toast.success("Item added");
-    setItemDialogOpen(false);
-  };
+  const handleCreateItem = (data) =>
+    run(async () => {
+      const row = {
+        ...data,
+        chapter_id: chapterId,
+        subject_id: subjectId,
+        order: items.length + 1,
+      };
+      if (parentField) row[parentField] = parentId;
+      await db.create(table, row);
+      await loadItems();
+      toast.success("Item added");
+      setItemDialogOpen(false);
+    });
 
-  const handleUpdateItem = async (data) => {
-    await db.update(table, editingItem.id, data);
-    await loadItems();
-    toast.success("Item updated");
-    setItemDialogOpen(false);
-    setEditingItem(null);
-  };
+  const handleUpdateItem = (data) =>
+    run(async () => {
+      await db.update(table, editingItem.id, data);
+      await loadItems();
+      toast.success("Item updated");
+      setItemDialogOpen(false);
+      setEditingItem(null);
+    });
 
-  const handleDeleteItem = async () => {
-    await db.remove(table, deletingItem.id);
-    await loadItems();
-    toast.success("Item deleted");
-    setDeletingItem(null);
-  };
+  const handleDeleteItem = () =>
+    run(async () => {
+      await db.remove(table, deletingItem.id);
+      await loadItems();
+      toast.success("Item deleted");
+      setDeletingItem(null);
+    });
 
   const sortedItems = [...items].sort(
     (a, b) => (a.order || 0) - (b.order || 0),
@@ -181,6 +186,7 @@ export default function ItemsManager({
           setEditingItem(null);
         }}
         editing={editingItem}
+        submitting={busy}
         onSubmit={(data) =>
           editingItem ? handleUpdateItem(data) : handleCreateItem(data)
         }
@@ -191,6 +197,7 @@ export default function ItemsManager({
         title="Delete Item"
         description={`Are you sure you want to delete "${deletingItem?.title}"?`}
         onConfirm={handleDeleteItem}
+        busy={busy}
       />
       <HtmlViewer
         open={!!viewerItem}

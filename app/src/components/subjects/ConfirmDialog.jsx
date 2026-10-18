@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-export default function ConfirmDialog({ open, onOpenChange, title, description, onConfirm, confirmClassName }) {
+export default function ConfirmDialog({ open, onOpenChange, title, description, onConfirm, confirmClassName, busy = false }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border">
@@ -23,6 +23,7 @@ export default function ConfirmDialog({ open, onOpenChange, title, description, 
           </Button>
           <Button
             type="button"
+            disabled={busy}
             className={cn('bg-destructive text-destructive-foreground', confirmClassName)}
             onClick={onConfirm}
           >

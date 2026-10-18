@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { useAsyncGuard } from "@/lib/useAsyncGuard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +106,7 @@ export default function DashboardResources() {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewerResource, setViewerResource] = useState(null);
+  const { run, busy } = useAsyncGuard();
 
   const email = profile?.email || user?.email || "";
   const canManageAll = isSuperAdmin;
@@ -160,62 +162,65 @@ export default function DashboardResources() {
     setEditing(null);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     if (!form.url.trim()) {
       toast.error("Upload a file or paste a URL first");
       return;
     }
-    const payload = { ...form, subject_id: form.subject_id || null };
-    try {
-      if (editing) {
-        await db.update("resources", editing.id, payload);
-        await loadResources();
-        closeDialog();
-        toast.success("Resource updated");
-      } else {
-        await db.create("resources", {
-          ...payload,
-          created_by: email,
-          created_by_id: profile?.id || user?.id || null,
-        });
-        try {
-          await db.create("activity_logs", {
-            action: "Created resource",
-            entity_type: "Resource",
-            entity_name: form.title,
-            performed_by: email,
+    run(async () => {
+      const payload = { ...form, subject_id: form.subject_id || null };
+      try {
+        if (editing) {
+          await db.update("resources", editing.id, payload);
+          await loadResources();
+          closeDialog();
+          toast.success("Resource updated");
+        } else {
+          await db.create("resources", {
+            ...payload,
+            created_by: email,
+            created_by_id: profile?.id || user?.id || null,
           });
-        } catch {}
-        await loadResources();
-        closeDialog();
-        toast.success("Resource created");
+          try {
+            await db.create("activity_logs", {
+              action: "Created resource",
+              entity_type: "Resource",
+              entity_name: form.title,
+              performed_by: email,
+            });
+          } catch {}
+          await loadResources();
+          closeDialog();
+          toast.success("Resource created");
+        }
+      } catch (error) {
+        toast.error(error?.message || "Failed to save resource");
       }
-    } catch (error) {
-      toast.error(error?.message || "Failed to save resource");
-    }
+    });
   };
 
-  const handleDelete = async () => {
-    const target = deleting;
-    try {
-      await db.remove("resources", target.id);
-    } catch (error) {
-      toast.error(error?.message || "Failed to delete resource");
-      return;
-    }
-    try {
-      await db.create("activity_logs", {
-        action: "Deleted resource",
-        entity_type: "Resource",
-        entity_name: target.title,
-        performed_by: email,
-      });
-    } catch {}
-    await loadResources();
-    setDeleting(null);
-    toast.success("Resource deleted");
-  };
+  const handleDelete = () =>
+    run(async () => {
+      const target = deleting;
+      try {
+        await db.remove("resources", target.id);
+      } catch (error) {
+        toast.error(error?.message || "Failed to delete resource");
+        return;
+      }
+      try {
+        await db.create("activity_logs", {
+          action: "Deleted resource",
+          entity_type: "Resource",
+          entity_name: target.title,
+          performed_by: email,
+        });
+      } catch {}
+      await loadResources();
+      setDeleting(null);
+      toast.success("Resource deleted");
+    });
 
   const canManage = (resource) => canManageAll || resource.created_by === email;
 
@@ -442,6 +447,7 @@ export default function DashboardResources() {
               </Button>
               <Button
                 type="submit"
+                disabled={busy}
                 className="bg-primary text-primary-foreground hover:brightness-110"
               >
                 {editing ? "Update" : "Create"}
@@ -465,6 +471,7 @@ export default function DashboardResources() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              disabled={busy}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDelete}
             >

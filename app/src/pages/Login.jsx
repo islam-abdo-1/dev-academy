@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/AuthContext";
 import PublicBackground from "@/components/layout/PublicBackground";
+import Turnstile, { isTurnstileEnabled } from "@/components/Turnstile";
 
 const ERROR_MESSAGES = {
   "Invalid login credentials":
@@ -27,7 +28,14 @@ const ERROR_MESSAGES = {
   "Email not confirmed": "بريدك الإلكتروني غير مُفعّل بعد",
   "Email rate limit exceeded": "محاولات كثيرة — حاول مرة أخرى بعد قليل",
   "provider is not enabled": "تسجيل الدخول بجوجل قيد التجهيز حالياً",
+  "captcha verification process failed":
+    "فشل التحقق الأمني — أعد المحاولة",
+  "captcha protection: request disallowed":
+    "فشل التحقق الأمني — أعد المحاولة",
 };
+
+const RESET_COOLDOWN_KEY = "da-reset-cooldown-until";
+const RESET_COOLDOWN_MS = 60_000;
 
 const FEATURES = [
   { icon: Brain, text: "مسارات متخصصة في الذكاء الاصطناعي والأمن السيبراني" },
@@ -69,6 +77,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const captchaRequired = isTurnstileEnabled();
+  const [cooldownUntil, setCooldownUntil] = useState(() => {
+    const stored = Number(localStorage.getItem(RESET_COOLDOWN_KEY));
+    return Number.isFinite(stored) ? stored : 0;
+  });
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return undefined;
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntil]);
+
+  const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - nowTick) / 1000));
 
   const requestedFrom = location.state?.from?.pathname;
   const from =
@@ -89,9 +113,11 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken: captchaToken || undefined },
     });
     setLoading(false);
     if (error) {
+      setCaptchaReset((n) => n + 1);
       toast.error(ERROR_MESSAGES[error.message] || error.message);
       return;
     }
@@ -122,15 +148,21 @@ export default function Login() {
       toast.error("أدخل بريدك الإلكتروني أولاً");
       return;
     }
+    if (cooldownLeft > 0) return;
     setSending(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/login`,
+      captchaToken: captchaToken || undefined,
     });
     setSending(false);
     if (error) {
+      setCaptchaReset((n) => n + 1);
       toast.error(ERROR_MESSAGES[error.message] || error.message);
       return;
     }
+    const until = Date.now() + RESET_COOLDOWN_MS;
+    localStorage.setItem(RESET_COOLDOWN_KEY, String(until));
+    setCooldownUntil(until);
     toast.success("تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني");
   };
 
@@ -275,9 +307,13 @@ export default function Login() {
                         </button>
                       </div>
                     </div>
+                    <Turnstile
+                      onToken={setCaptchaToken}
+                      resetSignal={captchaReset}
+                    />
                     <Button
                       type="submit"
-                      disabled={loading}
+                      disabled={loading || (captchaRequired && !captchaToken)}
                       className="w-full gap-2 h-11"
                     >
                       {loading ? (
@@ -354,10 +390,18 @@ export default function Login() {
                       placeholder="you@example.com"
                     />
                   </div>
+                  <Turnstile
+                    onToken={setCaptchaToken}
+                    resetSignal={captchaReset}
+                  />
                   <Button
                     type="button"
                     onClick={handleForgot}
-                    disabled={sending}
+                    disabled={
+                      sending ||
+                      cooldownLeft > 0 ||
+                      (captchaRequired && !captchaToken)
+                    }
                     className="w-full gap-2 h-11"
                   >
                     {sending ? (
@@ -365,7 +409,9 @@ export default function Login() {
                     ) : (
                       <Mail size={16} />
                     )}
-                    إرسال رابط الاستعادة
+                    {cooldownLeft > 0
+                      ? `حاول مجدداً بعد ${cooldownLeft} ث`
+                      : "إرسال رابط الاستعادة"}
                   </Button>
                   <button
                     type="button"

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { db } from '@/lib/api'
+import { useAsyncGuard } from '@/lib/useAsyncGuard'
 import ConfirmDialog from './ConfirmDialog'
 import ItemsManager from './ItemsManager'
 import LectureCard from './LectureCard'
@@ -27,6 +28,7 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
   const [lecturesLoading, setLecturesLoading] = useState(false)
   const [sections, setSections] = useState([])
   const [sectionsLoading, setSectionsLoading] = useState(false)
+  const { run, busy } = useAsyncGuard()
 
   const loadLectures = useCallback(async () => {
     setLecturesLoading(true)
@@ -48,49 +50,55 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
     loadSections()
   }, [expanded, kind, loadLectures, loadSections])
 
-  const handleCreateLecture = async (data) => {
-    await db.create('lectures', { ...data, chapter_id: chapter.id, subject_id: subjectId, order: lectures.length + 1 })
-    await loadLectures()
-    toast.success('Lecture created')
-    setLectureDialogOpen(false)
-  }
+  const handleCreateLecture = (data) =>
+    run(async () => {
+      await db.create('lectures', { ...data, chapter_id: chapter.id, subject_id: subjectId, order: lectures.length + 1 })
+      await loadLectures()
+      toast.success('Lecture created')
+      setLectureDialogOpen(false)
+    })
 
-  const handleUpdateLecture = async (data) => {
-    await db.update('lectures', editingLecture.id, data)
-    await loadLectures()
-    toast.success('Lecture updated')
-    setLectureDialogOpen(false)
-    setEditingLecture(null)
-  }
+  const handleUpdateLecture = (data) =>
+    run(async () => {
+      await db.update('lectures', editingLecture.id, data)
+      await loadLectures()
+      toast.success('Lecture updated')
+      setLectureDialogOpen(false)
+      setEditingLecture(null)
+    })
 
-  const handleDeleteLecture = async () => {
-    await db.remove('lectures', deletingLecture.id)
-    await loadLectures()
-    toast.success('Lecture deleted')
-    setDeletingLecture(null)
-  }
+  const handleDeleteLecture = () =>
+    run(async () => {
+      await db.remove('lectures', deletingLecture.id)
+      await loadLectures()
+      toast.success('Lecture deleted')
+      setDeletingLecture(null)
+    })
 
-  const handleCreateSection = async (data) => {
-    await db.create('sections', { ...data, chapter_id: chapter.id, subject_id: subjectId, order: sections.length + 1 })
-    await loadSections()
-    toast.success('Section created')
-    setSectionDialogOpen(false)
-  }
+  const handleCreateSection = (data) =>
+    run(async () => {
+      await db.create('sections', { ...data, chapter_id: chapter.id, subject_id: subjectId, order: sections.length + 1 })
+      await loadSections()
+      toast.success('Section created')
+      setSectionDialogOpen(false)
+    })
 
-  const handleUpdateSection = async (data) => {
-    await db.update('sections', editingSection.id, data)
-    await loadSections()
-    toast.success('Section updated')
-    setSectionDialogOpen(false)
-    setEditingSection(null)
-  }
+  const handleUpdateSection = (data) =>
+    run(async () => {
+      await db.update('sections', editingSection.id, data)
+      await loadSections()
+      toast.success('Section updated')
+      setSectionDialogOpen(false)
+      setEditingSection(null)
+    })
 
-  const handleDeleteSection = async () => {
-    await db.remove('sections', deletingSection.id)
-    await loadSections()
-    toast.success('Section deleted')
-    setDeletingSection(null)
-  }
+  const handleDeleteSection = () =>
+    run(async () => {
+      await db.remove('sections', deletingSection.id)
+      await loadSections()
+      toast.success('Section deleted')
+      setDeletingSection(null)
+    })
 
   const sortedLectures = [...lectures].sort((a, b) => (a.order || 0) - (b.order || 0))
   const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -305,6 +313,7 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
           setEditingLecture(null)
         }}
         editing={editingLecture}
+        submitting={busy}
         onSubmit={(data) => (editingLecture ? handleUpdateLecture(data) : handleCreateLecture(data))}
       />
       <SectionDialog
@@ -314,6 +323,7 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
           setEditingSection(null)
         }}
         editing={editingSection}
+        submitting={busy}
         onSubmit={(data) => (editingSection ? handleUpdateSection(data) : handleCreateSection(data))}
       />
       <ConfirmDialog
@@ -322,6 +332,7 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
         title="Delete Section"
         description={`Are you sure you want to delete "${deletingSection?.title}"?`}
         onConfirm={handleDeleteSection}
+        busy={busy}
       />
       <ConfirmDialog
         open={!!deletingLecture}
@@ -329,6 +340,7 @@ export default function ChapterCard({ chapter, subjectId, index, onEdit, onDelet
         title="Delete Lecture"
         description={`Are you sure you want to delete "${deletingLecture?.title}"?`}
         onConfirm={handleDeleteLecture}
+        busy={busy}
       />
     </div>
   )

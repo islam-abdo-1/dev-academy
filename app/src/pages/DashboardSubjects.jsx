@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { searchSubjects } from "@/lib/subjectSearch";
+import { useAsyncGuard } from "@/lib/useAsyncGuard";
 
 export default function DashboardSubjects() {
   const { user, isStaff } = useAuth();
@@ -33,6 +34,7 @@ export default function DashboardSubjects() {
   const [deletingSubject, setDeletingSubject] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { run, busy } = useAsyncGuard();
 
   const canEdit = isStaff;
 
@@ -63,33 +65,35 @@ export default function DashboardSubjects() {
     }).catch(() => {});
   };
 
-  const handleSave = async (data) => {
-    const payload = {
-      ...data,
-      credits: data.credits ? Number(data.credits) : undefined,
-    };
-    if (editingSubject) {
-      await db.update("subjects", editingSubject.id, payload);
-      await loadSubjects();
-      logActivity("Updated subject", payload.name);
-      closeDialog();
-      toast.success("Subject updated");
-    } else {
-      await db.create("subjects", payload);
-      await loadSubjects();
-      logActivity("Created subject", payload.name);
-      closeDialog();
-      toast.success("Subject created");
-    }
-  };
+  const handleSave = (data) =>
+    run(async () => {
+      const payload = {
+        ...data,
+        credits: data.credits ? Number(data.credits) : undefined,
+      };
+      if (editingSubject) {
+        await db.update("subjects", editingSubject.id, payload);
+        await loadSubjects();
+        logActivity("Updated subject", payload.name);
+        closeDialog();
+        toast.success("Subject updated");
+      } else {
+        await db.create("subjects", payload);
+        await loadSubjects();
+        logActivity("Created subject", payload.name);
+        closeDialog();
+        toast.success("Subject created");
+      }
+    });
 
-  const handleDelete = async () => {
-    await db.remove("subjects", deletingSubject.id);
-    await loadSubjects();
-    logActivity("Deleted subject", deletingSubject.name);
-    setDeletingSubject(null);
-    toast.success("Subject deleted");
-  };
+  const handleDelete = () =>
+    run(async () => {
+      await db.remove("subjects", deletingSubject.id);
+      await loadSubjects();
+      logActivity("Deleted subject", deletingSubject.name);
+      setDeletingSubject(null);
+      toast.success("Subject deleted");
+    });
 
   const handleAdd = () => {
     setEditingSubject(null);
@@ -221,6 +225,7 @@ export default function DashboardSubjects() {
         open={dialogOpen}
         onClose={closeDialog}
         editing={editingSubject}
+        submitting={busy}
         onSubmit={handleSave}
       />
       <ConfirmDialog
@@ -230,6 +235,7 @@ export default function DashboardSubjects() {
         description={`Are you sure you want to delete "${deletingSubject?.name}"? This action cannot be undone.`}
         onConfirm={handleDelete}
         confirmClassName="hover:bg-destructive/90"
+        busy={busy}
       />
     </div>
   );

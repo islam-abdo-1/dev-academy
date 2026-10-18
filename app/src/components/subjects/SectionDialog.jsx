@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
-export default function SectionDialog({ open, onClose, editing, onSubmit }) {
+export default function SectionDialog({ open, onClose, editing, onSubmit, submitting = false }) {
   const [form, setForm] = useState({ title: '', description: '' })
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function SectionDialog({ open, onClose, editing, onSubmit }) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:brightness-110">
+            <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:brightness-110">
               {editing ? 'Update' : 'Create'}
             </Button>
           </div>

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import FileUpload from './FileUpload'
 
-export default function ItemDialog({ open, onClose, editing, onSubmit }) {
+export default function ItemDialog({ open, onClose, editing, onSubmit, submitting = false }) {
   const [form, setForm] = useState({ title: '', type: 'video', url: '', file_type: 'pdf' })
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function ItemDialog({ open, onClose, editing, onSubmit }) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:brightness-110">
+            <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:brightness-110">
               {editing ? 'Update' : 'Add'}
             </Button>
           </div>

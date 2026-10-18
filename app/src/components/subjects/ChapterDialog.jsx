@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 const EMPTY_FORM = { title: '', description: '', kind: 'lectures' }
 
-export default function ChapterDialog({ open, onClose, editing, onSubmit }) {
+export default function ChapterDialog({ open, onClose, editing, onSubmit, submitting = false }) {
   const [form, setForm] = useState(EMPTY_FORM)
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function ChapterDialog({ open, onClose, editing, onSubmit }) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:brightness-110">
+            <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:brightness-110">
               {editing ? 'Update' : 'Create'}
             </Button>
           </div>

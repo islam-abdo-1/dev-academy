@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FolderOpen,
   Mail,
+  MapPin,
   Presentation,
   Trash2,
   Users,
@@ -93,20 +94,22 @@ function DueChip({ dueDate }) {
 
 function TaskChip({ icon: Icon, children }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border/50 bg-muted/30 text-muted-foreground">
-      {Icon && <Icon size={10} />}
+    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+      {Icon && <Icon size={10} className="opacity-60 flex-shrink-0" />}
       {children}
     </span>
   );
 }
 
 export default function NotificationBell({ userEmail }) {
-  const { profile } = useAuth();
+  const { profile, isStaff } = useAuth();
   const isLoggedIn = Boolean(userEmail);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("messages");
   const [messages, setMessages] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [seenTaskIds, setSeenTaskIds] = useState(() => new Set());
+  const autoReadAttempted = useRef(new Set());
   const [filters, setFilters] = useState({
     major: "all",
     year: "all",
@@ -114,8 +117,48 @@ export default function NotificationBell({ userEmail }) {
     group: "all",
   });
   const containerRef = useRef(null);
+  const seenKey = `da-tasks-seen-v1:${userEmail || "anon"}`;
 
   const activeTab = isLoggedIn ? tab : "tasks";
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(seenKey);
+      setSeenTaskIds(new Set(raw ? JSON.parse(raw) : []));
+    } catch {
+      setSeenTaskIds(new Set());
+    }
+  }, [seenKey]);
+
+  const markTasksSeen = useCallback(
+    (taskList) => {
+      setSeenTaskIds((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const task of taskList) {
+          if (!next.has(task.id)) {
+            next.add(task.id);
+            changed = true;
+          }
+        }
+        if (!changed) return prev;
+        try {
+          localStorage.setItem(
+            seenKey,
+            JSON.stringify([...next].slice(-300)),
+          );
+        } catch {
+          /* storage full or blocked */
+        }
+        return next;
+      });
+    },
+    [seenKey],
+  );
+
+  useEffect(() => {
+    if (open && activeTab === "tasks") markTasksSeen(tasks);
+  }, [open, activeTab, tasks, markTasksSeen]);
 
   const refreshMessages = useCallback(() => {
     if (!userEmail) return Promise.resolve();
@@ -143,11 +186,33 @@ export default function NotificationBell({ userEmail }) {
 
   useEffect(() => {
     refreshTasks();
+    const interval = setInterval(refreshTasks, 60000);
+    return () => clearInterval(interval);
   }, [refreshTasks]);
 
   useEffect(() => {
     if (open) refreshTasks();
   }, [open, refreshTasks]);
+
+  useEffect(() => {
+    if (!open || !isLoggedIn || activeTab !== "messages") return;
+    const unread = messages.filter(
+      (message) => !message.read && !autoReadAttempted.current.has(message.id),
+    );
+    if (unread.length === 0) return;
+    for (const message of unread) autoReadAttempted.current.add(message.id);
+    Promise.all(
+      unread.map((message) =>
+        db.update("messages", message.id, { read: true }),
+      ),
+    )
+      .then(() => refreshMessages())
+      .catch(() => {});
+  }, [open, isLoggedIn, activeTab, messages, refreshMessages]);
+
+  useEffect(() => {
+    if (!open) autoReadAttempted.current.clear();
+  }, [open]);
 
   useEffect(() => {
     const handler = (event) => {
@@ -211,7 +276,10 @@ export default function NotificationBell({ userEmail }) {
     ]
       .filter(Boolean)
       .join(" · ") || "كل المسارات";
-  const badgeCount = isLoggedIn ? unreadCount : visibleTasks.length;
+  const unseenTaskCount = visibleTasks.filter(
+    (task) => !seenTaskIds.has(task.id),
+  ).length;
+  const badgeCount = unreadCount + unseenTaskCount;
 
   const tabClass = (active) =>
     `flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
@@ -263,9 +331,9 @@ export default function NotificationBell({ userEmail }) {
                     className={tabClass(activeTab === "tasks")}
                   >
                     <ClipboardList size={12} /> إيه المطلوب مني؟
-                    {visibleTasks.length > 0 && (
+                    {unseenTaskCount > 0 && (
                       <span className="px-1 rounded-full bg-primary/20 text-primary text-[9px] font-bold">
-                        {visibleTasks.length}
+                        {unseenTaskCount}
                       </span>
                     )}
                   </button>
@@ -355,12 +423,14 @@ export default function NotificationBell({ userEmail }) {
                             </p>
                           )}
                         </div>
-                        <button
-                          onClick={(event) => deleteMessage(event, message)}
-                          className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 p-0.5 mt-0.5"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        {isStaff && (
+                          <button
+                            onClick={(event) => deleteMessage(event, message)}
+                            className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 p-0.5 mt-0.5"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -371,9 +441,11 @@ export default function NotificationBell({ userEmail }) {
             <>
               {isLoggedIn ? (
                 <div className="px-4 py-2 border-b border-border/20">
-                  <p className="text-[10px] font-mono text-muted-foreground">
+                  <p className="text-[10px] font-mono text-muted-foreground/70">
                     {"// بتظهر لك مهام مسارك: "}
-                    <span className="text-primary">{profileScopeLabel}</span>
+                    <span className="text-foreground/80 font-medium">
+                      {profileScopeLabel}
+                    </span>
                   </p>
                 </div>
               ) : (
@@ -461,24 +533,32 @@ export default function NotificationBell({ userEmail }) {
                 ) : (
                   <div className="divide-y divide-border/20">
                     {visibleTasks.map((task) => (
-                      <div key={task.id} className="px-4 py-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs font-semibold text-foreground leading-snug">
+                      <div
+                        key={task.id}
+                        className="px-4 py-3 transition-colors hover:bg-primary/5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-semibold text-foreground leading-snug">
                             {task.title}
                           </p>
                           <DueChip dueDate={task.due_date} />
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
+                        {task.details && (
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
+                            {task.details}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
                           {!isLoggedIn &&
                             (task.major || task.year || task.semester) && (
-                              <TaskChip>
-                                {`📍 ${[
+                              <TaskChip icon={MapPin}>
+                                {[
                                   MAJOR_LABELS[task.major],
                                   YEAR_LABELS[task.year],
                                   SEMESTER_LABELS[task.semester],
                                 ]
                                   .filter(Boolean)
-                                  .join(" · ")}`}
+                                  .join(" · ")}
                               </TaskChip>
                             )}
                           {task.subject_name && (
@@ -507,19 +587,14 @@ export default function NotificationBell({ userEmail }) {
                             </TaskChip>
                           )}
                         </div>
-                        {task.details && (
-                          <p className="text-[11px] text-muted-foreground mt-1.5 whitespace-pre-wrap leading-relaxed">
-                            {task.details}
-                          </p>
-                        )}
                         {task.form_url && (
                           <a
                             href={task.form_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-primary hover:underline"
+                            className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-primary hover:underline"
                           >
-                            <ExternalLink size={11} /> فورم التسليم
+                            <ExternalLink size={12} /> فورم التسليم
                           </a>
                         )}
                       </div>

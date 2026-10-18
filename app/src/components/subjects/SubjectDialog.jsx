@@ -9,7 +9,7 @@ import { MAJOR_LABELS, YEAR_LABELS, SEMESTER_LABELS } from './labels'
 
 const EMPTY_FORM = { name: '', english_name: '', code: '', description: '', major: '', year: '', semester: '', credits: '' }
 
-export default function SubjectDialog({ open, onClose, editing, onSubmit }) {
+export default function SubjectDialog({ open, onClose, editing, onSubmit, submitting = false }) {
   const [form, setForm] = useState(EMPTY_FORM)
 
   useEffect(() => {
@@ -147,7 +147,7 @@ export default function SubjectDialog({ open, onClose, editing, onSubmit }) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary text-primary-foreground hover:brightness-110">
+            <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:brightness-110">
               {editing ? 'Update' : 'Create'}
             </Button>
           </div>
