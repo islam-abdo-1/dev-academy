@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 import { formatDate } from "@/lib/formatDate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ const YEAR_LABELS = {
 const SEMESTER_LABELS = { "sem-1": "ترم 1", "sem-2": "ترم 2" };
 
 export default function TasksPanel({ user }) {
+  const { isSuperAdmin } = useAuth();
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [major, setMajor] = useState("all");
@@ -348,6 +350,7 @@ export default function TasksPanel({ user }) {
                       {task.item_name &&
                         ` — ${task.item_type === "section" ? "سيكشن" : "محاضرة"} ${task.item_name}`}
                       {task.group_name && ` — جروب ${task.group_name}`}
+                      {task.created_by && ` — بواسطة ${task.created_by}`}
                     </p>
                     {task.due_date && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -355,12 +358,14 @@ export default function TasksPanel({ user }) {
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {(isSuperAdmin || task.created_by === user?.email) && (
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="p-1.5 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

@@ -134,9 +134,6 @@ export default function SearchDialog({ open, onClose }) {
           {loading && (
             <LoaderCircle size={16} className="text-primary animate-spin" />
           )}
-          <kbd className="px-2 py-0.5 rounded bg-muted/50 border border-border/50 text-xs text-muted-foreground">
-            Esc
-          </kbd>
         </div>
         <div className="max-h-80 overflow-y-auto p-2">
           {results.subjects.length > 0 && (

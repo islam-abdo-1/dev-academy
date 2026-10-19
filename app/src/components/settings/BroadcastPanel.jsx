@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Megaphone, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 import { formatDate } from "@/lib/formatDate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ const YEAR_OPTIONS = [
 ];
 
 export default function BroadcastPanel({ user }) {
+  const { isSuperAdmin } = useAuth();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [type, setType] = useState("info");
@@ -38,6 +40,7 @@ export default function BroadcastPanel({ user }) {
   const [pathSection, setPathSection] = useState("all");
   const [pathYear, setPathYear] = useState("all");
   const [announcements, setAnnouncements] = useState([]);
+  const [sentMessages, setSentMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [sending, setSending] = useState(false);
 
@@ -64,17 +67,77 @@ export default function BroadcastPanel({ user }) {
         limit: 20,
       }),
       db.list("profiles"),
+      db.list("messages", { order: "created_date", asc: false, limit: 100 }),
     ])
-      .then(([announcementRows, userRows]) => {
+      .then(([announcementRows, userRows, messageRows]) => {
         if (!active) return;
         setAnnouncements(announcementRows);
         setUsers(userRows);
+        setSentMessages(messageRows);
       })
       .catch(() => {});
     return () => {
       active = false;
     };
   }, []);
+
+  const loadSentMessages = useCallback(async () => {
+    const rows = await db.list("messages", {
+      order: "created_date",
+      asc: false,
+      limit: 100,
+    });
+    setSentMessages(rows);
+  }, []);
+
+  const staffEmails = useMemo(
+    () =>
+      new Set(
+        users
+          .filter(
+            (item) => item.role === "admin" || item.role === "super_admin",
+          )
+          .map((item) => item.email),
+      ),
+    [users],
+  );
+
+  const sentBatches = useMemo(() => {
+    const visible = sentMessages.filter((message) =>
+      isSuperAdmin
+        ? staffEmails.has(message.from_email)
+        : message.from_email === user?.email,
+    );
+    const groups = new Map();
+    for (const message of visible) {
+      const minute = new Date(message.created_date).toISOString().slice(0, 16);
+      const key = `${message.from_email}|${message.subject}|${message.path || ""}|${minute}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.ids.push(message.id);
+      } else {
+        groups.set(key, {
+          key,
+          ids: [message.id],
+          from_email: message.from_email,
+          subject: message.subject,
+          path: message.path,
+          created_date: message.created_date,
+        });
+      }
+    }
+    return [...groups.values()].slice(0, 10);
+  }, [sentMessages, isSuperAdmin, staffEmails, user?.email]);
+
+  const deleteBatch = async (batch) => {
+    try {
+      await Promise.all(batch.ids.map((id) => db.remove("messages", id)));
+      await loadSentMessages();
+      toast.success("تم حذف الرسالة المُرسلة ✅");
+    } catch {
+      toast.error("مش قادر تحذف الرسالة دي");
+    }
+  };
 
   const toggleTarget = (id) => {
     if (id === "all") {
@@ -415,33 +478,83 @@ export default function BroadcastPanel({ user }) {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => toggleAnnouncement(announcement)}
-                        className="px-2 py-1 rounded text-xs font-mono transition-all border"
-                        style={{
-                          background: active ? config.bg : "transparent",
-                          borderColor: active
-                            ? config.border
-                            : "hsl(var(--border))",
-                          color: active
-                            ? config.color
-                            : "hsl(var(--muted-foreground))",
-                        }}
-                        title={active ? "إيقاف" : "تفعيل"}
-                      >
-                        {active ? "ON" : "OFF"}
-                      </button>
-                      <button
-                        onClick={() => deleteAnnouncement(announcement.id)}
-                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    {(isSuperAdmin ||
+                      announcement.created_by === user?.email) && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => toggleAnnouncement(announcement)}
+                          className="px-2 py-1 rounded text-xs font-mono transition-all border"
+                          style={{
+                            background: active ? config.bg : "transparent",
+                            borderColor: active
+                              ? config.border
+                              : "hsl(var(--border))",
+                            color: active
+                              ? config.color
+                              : "hsl(var(--muted-foreground))",
+                          }}
+                          title={active ? "إيقاف" : "تفعيل"}
+                        >
+                          {active ? "ON" : "OFF"}
+                        </button>
+                        <button
+                          onClick={() => deleteAnnouncement(announcement.id)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+        {sentBatches.length > 0 && (
+          <div>
+            <p className="text-xs text-muted-foreground font-mono mb-3">
+              {"// الرسائل المُرسلة "}
+              <span className="text-primary/60">(آخر 100 رسالة)</span>
+            </p>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {sentBatches.map((batch) => (
+                <div
+                  key={batch.key}
+                  className="rounded-lg p-3 border border-border flex items-start gap-3"
+                  style={{ background: "hsla(190,100%,50%,0.04)" }}
+                >
+                  <Send
+                    size={16}
+                    className="text-primary flex-shrink-0 mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {batch.subject || "(بدون عنوان)"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {batch.ids.length === 1
+                        ? "لـ مستلم واحد"
+                        : `لـ ${batch.ids.length} مستلم`}
+                      {isSuperAdmin && ` · من: ${batch.from_email}`}
+                      {batch.created_date &&
+                        ` · ${formatDate(new Date(batch.created_date), "MMM d, HH:mm")}`}
+                    </p>
+                    {batch.path && (
+                      <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                        {"📍 "}
+                        {batch.path}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => deleteBatch(batch)}
+                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}

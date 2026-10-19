@@ -102,7 +102,7 @@ function TaskChip({ icon: Icon, children }) {
 }
 
 export default function NotificationBell({ userEmail }) {
-  const { profile, isStaff } = useAuth();
+  const { profile, isSuperAdmin } = useAuth();
   const isLoggedIn = Boolean(userEmail);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("messages");
@@ -216,7 +216,15 @@ export default function NotificationBell({ userEmail }) {
 
   useEffect(() => {
     const handler = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target))
+      const target = event.target;
+      if (
+        target.closest &&
+        target.closest(
+          '[data-radix-popper-content-wrapper], [role="listbox"], [role="option"]',
+        )
+      )
+        return;
+      if (containerRef.current && !containerRef.current.contains(target))
         setOpen(false);
     };
     document.addEventListener("mousedown", handler);
@@ -423,7 +431,8 @@ export default function NotificationBell({ userEmail }) {
                             </p>
                           )}
                         </div>
-                        {isStaff && (
+                        {(isSuperAdmin ||
+                          message.from_email === userEmail) && (
                           <button
                             onClick={(event) => deleteMessage(event, message)}
                             className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 p-0.5 mt-0.5"

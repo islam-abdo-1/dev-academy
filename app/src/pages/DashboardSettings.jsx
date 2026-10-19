@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   Activity,
+  ClipboardList,
   Database,
   Key,
   Megaphone,
   Settings,
   Shield,
+  Trash2,
   Users,
 } from "lucide-react";
 import { db } from "@/lib/api";
@@ -52,6 +54,7 @@ export default function DashboardSettings() {
       </h1>
       <BroadcastPanel user={accountUser} />
       <TasksPanel user={accountUser} />
+      {isSuperAdmin ? (
       <Card className="neon-card bg-card mb-8">
         <CardHeader>
           <CardTitle className="text-lg text-foreground flex items-center gap-2">
@@ -104,6 +107,55 @@ export default function DashboardSettings() {
           </div>
         </CardContent>
       </Card>
+      ) : (
+        <Card className="neon-card bg-card mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg text-foreground flex items-center gap-2">
+              <Shield size={20} className="text-primary" />
+              صلاحياتك كأدمن
+              <Badge className="bg-muted text-muted-foreground border border-border text-xs ml-auto">
+                🛡️ ADMIN
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                {
+                  icon: Megaphone,
+                  label: "إرسال إعلانات ورسائل",
+                  desc: "لجميع المستخدمين أو لشخص محدد أو لمسار",
+                },
+                {
+                  icon: ClipboardList,
+                  label: "إضافة مهام",
+                  desc: "مهام للطلاب حسب المسار",
+                },
+                {
+                  icon: Trash2,
+                  label: "إدارة ما أنشأته",
+                  desc: "تعديل وحذف الرسائل والإعلانات والمهام التي أرسلتها أنت فقط",
+                },
+              ].map(({ icon: Icon, label, desc }) => (
+                <div
+                  key={label}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-primary/10"
+                >
+                  <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                    <Icon size={16} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {label}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card className="neon-card bg-card mb-8">
         <CardHeader>
           <CardTitle className="text-lg text-foreground flex items-center gap-2">
@@ -135,8 +187,14 @@ export default function DashboardSettings() {
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                 Access Level
               </p>
-              <Badge className="bg-primary/20 text-primary border border-primary/30 text-xs">
-                ⚡ SUPER ADMIN
+              <Badge
+                className={
+                  isSuperAdmin
+                    ? "bg-primary/20 text-primary border border-primary/30 text-xs"
+                    : "bg-muted text-muted-foreground border border-border text-xs"
+                }
+              >
+                {isSuperAdmin ? "⚡ SUPER ADMIN" : "🛡️ ADMIN"}
               </Badge>
             </div>
           </div>

@@ -1,8 +1,6 @@
-import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, CircleHelp, House, Menu, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, House, Menu, Search } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
-import GuideDialog from './GuideDialog'
 import NotificationBell from './NotificationBell'
 import RoleBadge from './RoleBadge'
 
@@ -92,7 +90,6 @@ function HistoryNav() {
 }
 
 export default function DashboardHeader({ role, onMenuToggle, onSearchOpen }) {
-  const [guideOpen, setGuideOpen] = useState(false)
   const { profile } = useAuth()
 
   return (
@@ -129,18 +126,9 @@ export default function DashboardHeader({ role, onMenuToggle, onSearchOpen }) {
         </kbd>
       </button>
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => setGuideOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all border border-border/50 hover:border-primary/30 min-h-[36px]"
-          title="Platform Guide"
-        >
-          <CircleHelp size={14} />
-          <span className="hidden sm:inline">Guide</span>
-        </button>
         <NotificationBell userEmail={profile?.email} />
         <RoleBadge role={role} />
       </div>
-      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
     </header>
   )
 }
