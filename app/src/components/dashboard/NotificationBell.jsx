@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { formatDate } from "@/lib/formatDate";
 import {
@@ -116,43 +117,74 @@ export default function NotificationBell({ userEmail }) {
     group: "all",
   });
   const containerRef = useRef(null);
-  const seenKey = `da-tasks-seen-v1:${userEmail || "anon"}`;
+  const profileId = profile?.id || null;
+  const anonSeenKey = "da-tasks-seen-v1:anon";
 
   const activeTab = isLoggedIn ? tab : "tasks";
 
   useEffect(() => {
+    if (isLoggedIn && profileId) {
+      let active = true;
+      supabase
+        .from("task_reads")
+        .select("task_id")
+        .limit(500)
+        .then(({ data }) => {
+          if (!active) return;
+          setSeenTaskIds(
+            new Set(Array.isArray(data) ? data.map((row) => row.task_id) : []),
+          );
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
     try {
-      const raw = localStorage.getItem(seenKey);
+      const raw = localStorage.getItem(anonSeenKey);
       setSeenTaskIds(new Set(raw ? JSON.parse(raw) : []));
     } catch {
       setSeenTaskIds(new Set());
     }
-  }, [seenKey]);
+  }, [isLoggedIn, profileId, anonSeenKey]);
 
   const markTasksSeen = useCallback(
     (taskList) => {
       setSeenTaskIds((prev) => {
-        let changed = false;
         const next = new Set(prev);
+        const added = [];
         for (const task of taskList) {
           if (!next.has(task.id)) {
             next.add(task.id);
-            changed = true;
+            added.push(task.id);
           }
         }
-        if (!changed) return prev;
-        try {
-          localStorage.setItem(
-            seenKey,
-            JSON.stringify([...next].slice(-300)),
-          );
-        } catch {
-          /* storage full or blocked */
+        if (added.length === 0) return prev;
+        if (isLoggedIn && profileId) {
+          supabase
+            .from("task_reads")
+            .upsert(
+              added.map((taskId) => ({
+                profile_id: profileId,
+                task_id: taskId,
+              })),
+              { onConflict: "profile_id,task_id", ignoreDuplicates: true },
+            )
+            .then(() => {});
+        } else {
+          try {
+            localStorage.setItem(
+              anonSeenKey,
+              JSON.stringify([...next].slice(-300)),
+            );
+          } catch {
+            /* storage full or blocked */
+          }
         }
         return next;
       });
     },
-    [seenKey],
+    [isLoggedIn, profileId, anonSeenKey],
   );
 
   useEffect(() => {
