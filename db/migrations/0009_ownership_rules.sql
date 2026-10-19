@@ -66,12 +66,14 @@ for each row execute function public.guard_message_update();
 -- ---------- 2) announcements: creator owns, super controls all ----------
 
 drop policy if exists announcements_update_staff on public.announcements;
+drop policy if exists announcements_update_own on public.announcements;
 create policy announcements_update_own on public.announcements
   for update to authenticated
   using (public.is_super_admin() or created_by = public.my_email())
   with check (public.is_super_admin() or created_by = public.my_email());
 
 drop policy if exists announcements_delete_staff on public.announcements;
+drop policy if exists announcements_delete_own on public.announcements;
 create policy announcements_delete_own on public.announcements
   for delete to authenticated
   using (public.is_super_admin() or created_by = public.my_email());
@@ -79,12 +81,14 @@ create policy announcements_delete_own on public.announcements
 -- ---------- 3) tasks: creator owns, super controls all ----------
 
 drop policy if exists tasks_update_staff on public.tasks;
+drop policy if exists tasks_update_own on public.tasks;
 create policy tasks_update_own on public.tasks
   for update to authenticated
   using (public.is_super_admin() or created_by = public.my_email())
   with check (public.is_super_admin() or created_by = public.my_email());
 
 drop policy if exists tasks_delete_staff on public.tasks;
+drop policy if exists tasks_delete_own on public.tasks;
 create policy tasks_delete_own on public.tasks
   for delete to authenticated
   using (public.is_super_admin() or created_by = public.my_email());

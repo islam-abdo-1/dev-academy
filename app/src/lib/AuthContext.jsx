@@ -65,6 +65,12 @@ export function AuthProvider({ children }) {
         .eq("id", userId)
         .maybeSingle();
       if (error) throw error;
+      if (!data) {
+        const { data: healed } = await supabase.rpc("ensure_my_profile");
+        const healedRow = Array.isArray(healed) ? healed[0] : healed;
+        setProfile(healedRow ?? null);
+        return healedRow ?? null;
+      }
       setProfile(data ?? null);
       return data ?? null;
     } catch {

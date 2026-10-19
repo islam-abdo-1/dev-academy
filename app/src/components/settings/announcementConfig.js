@@ -93,8 +93,8 @@ export const TARGETS = [
 ]
 
 export const ROLE_BY_TARGET = {
-  students: 'user',
-  admins: 'admin',
-  doctors: 'doctor',
-  assistants: 'assistant',
+  students: ['user'],
+  admins: ['admin', 'super_admin'],
+  doctors: ['doctor'],
+  assistants: ['assistant'],
 }

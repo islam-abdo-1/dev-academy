@@ -16,8 +16,9 @@ export default function RemoveUserDialog({ user, onRemove, onClose }) {
         <AlertDialogHeader>
           <AlertDialogTitle className="text-foreground">Remove User</AlertDialogTitle>
           <AlertDialogDescription className="text-muted-foreground">
-            Are you sure you want to remove <strong>{user?.email}</strong>? This cannot be
-            undone.
+            Are you sure you want to remove <strong>{user?.email}</strong>? سيتم
+            حذفه من الفريق وإرجاعه طالب لو سجل دخول تاني — الحساب نفسه مش
+            هيتمسح.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

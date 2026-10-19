@@ -201,10 +201,14 @@ export default function BroadcastPanel({ user }) {
         return;
       }
       if (audience === "group") {
-        const roles = targets
-          .map((target) => ROLE_BY_TARGET[target])
-          .filter(Boolean);
-        const recipients = users.filter((item) => roles.includes(item.role));
+        const roles = targets.flatMap((target) => ROLE_BY_TARGET[target] || []);
+        const recipients = users.filter(
+          (item) => roles.includes(item.role) && !item.disabled,
+        );
+        if (recipients.length === 0) {
+          toast.error("مفيش مستخدمين بالدور المختار — ظبط أدوار الفريق الأول");
+          return;
+        }
         await Promise.all(
           recipients.map((recipient) =>
             db.create("messages", {
@@ -330,13 +334,15 @@ export default function BroadcastPanel({ user }) {
                 <SelectValue placeholder="اختر المستخدم..." />
               </SelectTrigger>
               <SelectContent className="bg-card border-border max-h-48">
-                {users.map((item) => (
-                  <SelectItem key={item.id} value={item.email}>
-                    {item.full_name
-                      ? `${item.full_name} — ${item.email}`
-                      : item.email}
-                  </SelectItem>
-                ))}
+                {users
+                  .filter((item) => !item.disabled)
+                  .map((item) => (
+                    <SelectItem key={item.id} value={item.email}>
+                      {item.full_name
+                        ? `${item.full_name} — ${item.email}`
+                        : item.email}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           )}
@@ -344,7 +350,9 @@ export default function BroadcastPanel({ user }) {
             <p className="text-xs text-muted-foreground font-mono mb-1">
               {"// المسار المستهدف "}
               <span className="text-primary/60">(اختياري)</span>
-              {" — الرسالة تظهر في هذا المسار بس"}
+              {audience === "all"
+                ? " — الإعلان يظهر في المسار ده بس"
+                : " — يُرفق بالرسالة كبيان للمسار"}
             </p>
             <div className="grid grid-cols-2 gap-2">
               <Select value={pathSection} onValueChange={setPathSection}>

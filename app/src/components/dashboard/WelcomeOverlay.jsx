@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { CircleCheckBig, Info, TriangleAlert, X, Zap } from "lucide-react";
 import { db } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
 const ANNOUNCEMENT_STYLES = {
   info: {
@@ -36,7 +37,6 @@ const ANNOUNCEMENT_STYLES = {
 };
 
 const DISMISSED_KEY = "dismissed_announcements";
-
 const normalizeToken = (value) =>
   String(value || "")
     .toLowerCase()
@@ -56,22 +56,25 @@ function matchesPath(path, pathname) {
   return true;
 }
 
-function getDismissed() {
+function getDismissed(storageKey) {
   try {
-    return JSON.parse(localStorage.getItem(DISMISSED_KEY) || "[]");
+    return JSON.parse(localStorage.getItem(storageKey) || "[]");
   } catch {
     return [];
   }
 }
 
-function saveDismissed(id) {
-  const dismissed = getDismissed();
-  localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed, id]));
+function saveDismissed(storageKey, id) {
+  const dismissed = getDismissed(storageKey);
+  if (dismissed.includes(id)) return;
+  localStorage.setItem(storageKey, JSON.stringify([...dismissed, id]));
 }
 
 export default function WelcomeOverlay() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [announcements, setAnnouncements] = useState([]);
+  const dismissedKey = `${DISMISSED_KEY}:${user?.id || "anon"}`;
 
   useEffect(() => {
     const load = () => {
@@ -81,7 +84,7 @@ export default function WelcomeOverlay() {
         { order: "created_date", asc: false, limit: 20 },
       )
         .then((data) => {
-          const dismissed = getDismissed();
+          const dismissed = getDismissed(dismissedKey);
           setAnnouncements(
             (data || [])
               .filter(
@@ -97,10 +100,10 @@ export default function WelcomeOverlay() {
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
-  }, [pathname]);
+  }, [pathname, dismissedKey]);
 
   const dismiss = (id) => {
-    saveDismissed(id);
+    saveDismissed(dismissedKey, id);
     setAnnouncements((list) => list.filter((item) => item.id !== id));
   };
 

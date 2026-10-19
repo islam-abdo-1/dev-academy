@@ -57,7 +57,14 @@ export default function DashboardTeam() {
       setEmail('')
       loadMembers()
     } catch (error) {
-      toast.error(error?.message || 'Failed to invite user')
+      const raw = String(error?.message || error || '')
+      if (/function|not found|404|failed to send a request/i.test(raw)) {
+        toast.error(
+          'الدعوات بالبريد مش مفعّلة على السيرفر — ضيف المستخدم من لوحة Supabase وحدد دوره من هنا',
+        )
+      } else {
+        toast.error(raw || 'Failed to invite user')
+      }
     } finally {
       setInviting(false)
     }
@@ -112,6 +119,13 @@ export default function DashboardTeam() {
         body: messageBody,
         read: false,
       })
+    } catch (error) {
+      toast.error(error?.message || 'Failed to save message')
+      setSending(false)
+      return
+    }
+    let emailSent = true
+    try {
       const { error: sendError } = await supabase.functions.invoke('send-email', {
         body: {
           to: messageUser.email,
@@ -119,15 +133,18 @@ export default function DashboardTeam() {
           body: messageBody,
         },
       })
-      if (sendError) throw sendError
-      toast.success(`Message sent to ${messageUser.email}`)
-      setMessageUser(null)
-      setMessageBody('')
-    } catch (error) {
-      toast.error(error?.message || 'Failed to send message')
-    } finally {
-      setSending(false)
+      if (sendError) emailSent = false
+    } catch {
+      emailSent = false
     }
+    toast.success(
+      emailSent
+        ? `Message sent to ${messageUser.email}`
+        : `✅ اتحفظت في إشعارات ${messageUser.email} — تنبيه البريد مش مفعّل حاليًا`,
+    )
+    setMessageUser(null)
+    setMessageBody('')
+    setSending(false)
   }
 
   const sortedMembers = sortUsersByRole(members)

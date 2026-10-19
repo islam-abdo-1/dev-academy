@@ -109,7 +109,6 @@ export default function NotificationBell({ userEmail }) {
   const [messages, setMessages] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [seenTaskIds, setSeenTaskIds] = useState(() => new Set());
-  const autoReadAttempted = useRef(new Set());
   const [filters, setFilters] = useState({
     major: "all",
     year: "all",
@@ -193,26 +192,6 @@ export default function NotificationBell({ userEmail }) {
   useEffect(() => {
     if (open) refreshTasks();
   }, [open, refreshTasks]);
-
-  useEffect(() => {
-    if (!open || !isLoggedIn || activeTab !== "messages") return;
-    const unread = messages.filter(
-      (message) => !message.read && !autoReadAttempted.current.has(message.id),
-    );
-    if (unread.length === 0) return;
-    for (const message of unread) autoReadAttempted.current.add(message.id);
-    Promise.all(
-      unread.map((message) =>
-        db.update("messages", message.id, { read: true }),
-      ),
-    )
-      .then(() => refreshMessages())
-      .catch(() => {});
-  }, [open, isLoggedIn, activeTab, messages, refreshMessages]);
-
-  useEffect(() => {
-    if (!open) autoReadAttempted.current.clear();
-  }, [open]);
 
   useEffect(() => {
     const handler = (event) => {
