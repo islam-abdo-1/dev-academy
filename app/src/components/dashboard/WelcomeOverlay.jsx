@@ -5,8 +5,6 @@ import { CircleCheckBig, Info, TriangleAlert, X, Zap } from "lucide-react";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 
-const DISMISSED_KEY = "dismissed_announcements";
-
 const ANNOUNCEMENT_STYLES = {
   info: {
     icon: Info,
@@ -57,25 +55,11 @@ function matchesPath(path, pathname) {
   return true;
 }
 
-function getDismissed(storageKey) {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveDismissed(storageKey, id) {
-  const dismissed = getDismissed(storageKey);
-  if (dismissed.includes(id)) return;
-  localStorage.setItem(storageKey, JSON.stringify([...dismissed, id]));
-}
-
 export default function WelcomeOverlay() {
   const { pathname } = useLocation();
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   const [announcements, setAnnouncements] = useState([]);
-  const dismissedKey = `${DISMISSED_KEY}:${user?.id || "anon"}`;
+  const dismissedRef = useRef(new Set());
 
   useEffect(() => {
     if (loading) return undefined;
@@ -91,12 +75,11 @@ export default function WelcomeOverlay() {
       )
         .then((data) => {
           if (cancelled || currentRequest !== requestId) return;
-          const dismissed = getDismissed(dismissedKey);
           setAnnouncements(
             (data || [])
               .filter(
                 (item) =>
-                  !dismissed.includes(item.id) &&
+                  !dismissedRef.current.has(item.id) &&
                   matchesPath(item.path, pathname),
               )
               .slice(0, 5),
@@ -111,10 +94,10 @@ export default function WelcomeOverlay() {
       requestId += 1;
       clearInterval(interval);
     };
-  }, [pathname, user?.id, dismissedKey, loading]);
+  }, [pathname, loading]);
 
   const dismiss = (id) => {
-    saveDismissed(dismissedKey, id);
+    dismissedRef.current.add(id);
     setAnnouncements((list) => list.filter((item) => item.id !== id));
   };
 

@@ -1,7 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { publicRoutes, seoFor, shellRoutes, SITE_URL } from "../src/lib/seoRoutes.js";
+import {
+  publicRoutes,
+  seoFor,
+  shellRoutes,
+  SITE_NAME,
+  SITE_URL,
+} from "../src/lib/seoRoutes.js";
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const distDir = join(appDir, "..", "dist");
@@ -43,6 +49,7 @@ function renderMeta(template, pathname, { includeCanonical = true } = {}) {
   html = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeAttribute(seo.title)}</title>`);
   html = setMeta(html, "name", "description", seo.description);
   html = setMeta(html, "name", "robots", seo.robots);
+  html = setMeta(html, "property", "og:site_name", SITE_NAME);
   html = setMeta(html, "property", "og:title", seo.title);
   html = setMeta(html, "property", "og:description", seo.description);
   html = setMeta(html, "property", "og:url", url);

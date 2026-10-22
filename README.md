@@ -10,7 +10,7 @@
 
 Dev Academy (ديف أكاديمي) brings scattered course material into one organized place: browse by major → year → semester → subject, preview files in the browser, save a personal library, and share lists with classmates.
 
-> Live site: `https://dev-academy.pages.dev`
+> Live site: [dev-academy.pages.dev](https://dev-academy.pages.dev)
 >
 > Launch-readiness results: [REPORT.md](REPORT.md)
 
