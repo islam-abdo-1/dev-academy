@@ -11,7 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { MaterialPreview } from "@/components/material/MaterialPreview";
 import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
-import { downloadHref, isStorageFile, safeHttpUrl } from "@/lib/materialPreview";
+import {
+  downloadHref,
+  isStorageFile,
+  isSupabaseStorageHtml,
+  safeHttpUrl,
+} from "@/lib/materialPreview";
 import type { Material } from "@/components/material/types";
 
 interface MaterialViewerDialogProps {
@@ -165,7 +170,7 @@ export function MaterialViewerDialog({
                 </a>
               </Button>
             )}
-            {safeUrl && (
+            {safeUrl && !isSupabaseStorageHtml(material) && (
               <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs">
                 <a
                   href={safeUrl}

@@ -72,15 +72,14 @@ function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
         >
-          <Link to="/explore">
-            <Button
-              size="lg"
-              className="bg-primary text-primary-foreground px-8 py-6 text-lg font-medium normal-case rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow hover:bg-primary/90 h-10 hover:brightness-110"
-              style={{ boxShadow: "0 0 20px hsla(190, 100%, 50%, 0.4)" }}
-            >
-              Get Started →
-            </Button>
-          </Link>
+          <Button
+            asChild
+            size="lg"
+            className="bg-primary text-primary-foreground px-8 py-6 text-lg font-medium normal-case rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow hover:bg-primary/90 h-10 hover:brightness-110"
+            style={{ boxShadow: "0 0 20px hsla(190, 100%, 50%, 0.4)" }}
+          >
+            <Link to="/explore">Get Started →</Link>
+          </Button>
         </motion.div>
       </div>
     </section>
@@ -200,11 +199,12 @@ function AboutSection() {
               Browse specializations and study groups to access available
               materials and files.
             </p>
-            <Link to="/explore" className="inline-block mt-4">
-              <Button className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium rounded-md hover:bg-primary/90">
-                Browse specializations
-              </Button>
-            </Link>
+            <Button
+              asChild
+              className="mt-4 bg-primary text-primary-foreground px-4 py-2 text-sm font-medium rounded-md hover:bg-primary/90"
+            >
+              <Link to="/explore">Browse specializations</Link>
+            </Button>
           </div>
         </div>
       </div>

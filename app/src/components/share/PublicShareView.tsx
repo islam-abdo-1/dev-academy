@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatBytes } from '@/lib/utils';
-import { downloadHref, isStorageFile, safeHttpUrl } from '@/lib/materialPreview';
+import {
+  downloadHref,
+  isStorageFile,
+  isSupabaseStorageHtml,
+  safeHttpUrl,
+} from '@/lib/materialPreview';
 import { MaterialTypeIcon } from '@/components/material/MaterialTypeIcon';
 import { materialFromSharedItem } from '@/components/material/types';
 import { useMaterialViewer } from '@/components/material/MaterialViewerProvider';
@@ -310,7 +315,7 @@ export function PublicShareView() {
                         <Eye className="h-4 w-4" />
                       </button>
                     )}
-                    {canPreview && (
+                    {canPreview && !isSupabaseStorageHtml(item) && (
                       <a
                         href={safeItemUrl}
                         target="_blank"

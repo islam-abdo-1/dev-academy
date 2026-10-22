@@ -122,6 +122,7 @@ export default function NotificationBell({ userEmail }) {
     group: "all",
   });
   const containerRef = useRef(null);
+  const messagesRequestRef = useRef(0);
   const profileId = profile?.id || null;
   const anonSeenKey = "da-tasks-seen-v1:anon";
 
@@ -197,11 +198,24 @@ export default function NotificationBell({ userEmail }) {
   }, [open, activeTab, tasks, markTasksSeen]);
 
   const refreshMessages = useCallback(() => {
-    if (!userEmail) return Promise.resolve();
+    if (!userEmail) {
+      messagesRequestRef.current += 1;
+      setMessages([]);
+      return Promise.resolve();
+    }
+
+    const requestId = ++messagesRequestRef.current;
     return db
-      .filter("messages", { to_email: userEmail })
-      .then((data) => setMessages(data || []))
-      .catch(() => setMessages([]));
+      .filter(
+        "messages",
+        { to_email: userEmail },
+        { order: "created_date", asc: false, limit: 200 },
+      )
+      .then((data) => {
+        if (requestId !== messagesRequestRef.current) return;
+        if (Array.isArray(data)) setMessages(data);
+      })
+      .catch(() => {});
   }, [userEmail]);
 
   const refreshTasks = useCallback(
@@ -214,10 +228,17 @@ export default function NotificationBell({ userEmail }) {
   );
 
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail) {
+      messagesRequestRef.current += 1;
+      setMessages([]);
+      return;
+    }
     refreshMessages();
     const interval = setInterval(refreshMessages, 15000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      messagesRequestRef.current += 1;
+    };
   }, [userEmail, refreshMessages]);
 
   useEffect(() => {
@@ -256,24 +277,54 @@ export default function NotificationBell({ userEmail }) {
 
   const markRead = async (message) => {
     if (message.read) return;
-    await db.update("messages", message.id, { read: true });
-    refreshMessages();
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === message.id ? { ...item, read: true } : item,
+      ),
+    );
+    try {
+      await db.update("messages", message.id, { read: true });
+    } catch {
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === message.id ? { ...item, read: false } : item,
+        ),
+      );
+      toast.error("تعذر تحديث حالة الإشعار");
+    }
   };
 
   const deleteMessage = async (event, message) => {
     event.stopPropagation();
-    await db.remove("messages", message.id);
-    refreshMessages();
-    toast.success("تم حذف الإشعار");
+    const previous = messages;
+    setMessages((current) => current.filter((item) => item.id !== message.id));
+    try {
+      await db.remove("messages", message.id);
+      toast.success("تم حذف الإشعار");
+    } catch {
+      setMessages(previous);
+      toast.error("تعذر حذف الإشعار");
+    }
   };
 
   const markAllRead = async () => {
-    await Promise.all(
+    if (unreadMessages.length === 0) return;
+    const unreadIds = new Set(unreadMessages.map((message) => message.id));
+    setMessages((current) =>
+      current.map((item) =>
+        unreadIds.has(item.id) ? { ...item, read: true } : item,
+      ),
+    );
+    const results = await Promise.allSettled(
       unreadMessages.map((message) =>
         db.update("messages", message.id, { read: true }),
       ),
     );
-    refreshMessages();
+    if (results.some((result) => result.status === "rejected")) {
+      refreshMessages();
+      toast.error("تعذر تحديد بعض الإشعارات كمقروءة");
+      return;
+    }
     toast.success("تم تحديد كل الإشعارات كمقروءة");
   };
 
@@ -379,15 +430,18 @@ export default function NotificationBell({ userEmail }) {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen((value) => !value)}
-        aria-label={`الإشعارات والمهام${badgeCount > 0 ? ` (${badgeCount > 9 ? "9+" : badgeCount})` : ""}`}
+        aria-label={`الإشعارات والمهام${badgeCount > 0 ? ` (${badgeCount > 99 ? "99+" : badgeCount})` : ""}`}
         className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
       >
         <Bell size={16} />
         {badgeCount > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background"
-          />
+            dir="ltr"
+            className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground ring-2 ring-background"
+          >
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </span>
         )}
       </button>
       {open && (

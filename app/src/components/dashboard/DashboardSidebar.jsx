@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
@@ -62,25 +62,37 @@ export default function DashboardSidebar({ role, user, mobileOpen, onCloseMobile
   const navigate = useNavigate()
   const { signOut } = useAuth()
   const [unreadMessages, setUnreadMessages] = useState([])
+  const unreadRequestRef = useRef(0)
 
   const navItems = NAV_ITEMS.filter((item) => item.roles.includes(role))
 
   useEffect(() => {
-    if (!user?.email) return
+    const email = user?.email
+    if (!email) {
+      unreadRequestRef.current += 1
+      setUnreadMessages([])
+      return
+    }
+
     let cancelled = false
     const load = () => {
-      db.filter('messages', { to_email: user.email, read: false })
+      const requestId = ++unreadRequestRef.current
+      db.filter(
+        'messages',
+        { to_email: email, read: false },
+        { order: 'created_date', asc: false, limit: 100 },
+      )
         .then((data) => {
-          if (!cancelled) setUnreadMessages(data || [])
+          if (cancelled || requestId !== unreadRequestRef.current) return
+          if (Array.isArray(data)) setUnreadMessages(data)
         })
-        .catch(() => {
-          if (!cancelled) setUnreadMessages([])
-        })
+        .catch(() => {})
     }
     load()
     const interval = setInterval(load, 30000)
     return () => {
       cancelled = true
+      unreadRequestRef.current += 1
       clearInterval(interval)
     }
   }, [user?.email])

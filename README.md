@@ -10,7 +10,7 @@
 
 Dev Academy (ديف أكاديمي) brings scattered course material into one organized place: browse by major → year → semester → subject, preview files in the browser, save a personal library, and share lists with classmates.
 
-> Demo / production URL: `https://dev-academy.pages.dev`
+> Live site: `https://dev-academy.pages.dev`
 >
 > Launch-readiness results: [REPORT.md](REPORT.md)
 
@@ -24,7 +24,7 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 ## Features
 
 - **Structured catalog** — AI and Cybersecurity majors, four academic years, two semesters each, subjects, chapters, sections, and materials.
-- **In-browser previews** — PDF, images, video, audio, text/code, HTML (sandboxed), Office documents, Google Drive, YouTube, and archives.
+- **In-browser previews** — PDF, images, video, audio, text/code, interactive HTML (isolated sandbox), Office documents, Google Drive, YouTube, and archives.
 - **Personal library** — upload private files, organize saved items into lists, and download or share.
 - **Public sharing** — revocable view/download links for single files or whole lists.
 - **Publishing workflow** — students submit personal files for review; staff approve and publish into the official catalog.
@@ -150,7 +150,7 @@ Security headers live in `app/public/_headers`. SPA fallbacks are limited to `/s
 - File uploads validate size, MIME type, and extension; object paths are user-scoped and canonicalized.
 - Rate limits cover shares, publish requests, messages, and storage reservations.
 - CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` are set at the edge.
-- HTML previews run in a sandboxed iframe with scripts disabled.
+- HTML previews run in an isolated `allow-scripts` iframe without same-origin access. Supabase serves public Storage HTML as `text/plain` by design, so HTML materials use the in-app preview rather than a direct Storage URL.
 
 See [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
@@ -165,7 +165,7 @@ See [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 ## Author
 
 **Islam Abdo** — founder and maintainer.
-GitHub: [@islamabdo](https://github.com/islamabdo)
+GitHub: [@islam-abdo-1](https://github.com/islam-abdo-1)
 
 ## License
 

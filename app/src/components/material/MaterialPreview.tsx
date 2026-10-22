@@ -91,7 +91,7 @@ function HtmlPreview({ material }: { material: Material }) {
   return (
     <iframe
       title={material.title}
-      sandbox=""
+      sandbox="allow-scripts"
       srcDoc={html}
       referrerPolicy="no-referrer"
       className="h-full w-full border-0 bg-white"

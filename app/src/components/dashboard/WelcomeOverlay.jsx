@@ -73,18 +73,24 @@ function saveDismissed(storageKey, id) {
 
 export default function WelcomeOverlay() {
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [announcements, setAnnouncements] = useState([]);
   const dismissedKey = `${DISMISSED_KEY}:${user?.id || "anon"}`;
 
   useEffect(() => {
+    if (loading) return undefined;
+
+    let cancelled = false;
+    let requestId = 0;
     const load = () => {
+      const currentRequest = ++requestId;
       db.filter(
         "announcements",
         { pinned: true },
         { order: "created_date", asc: false, limit: 20 },
       )
         .then((data) => {
+          if (cancelled || currentRequest !== requestId) return;
           const dismissed = getDismissed(dismissedKey);
           setAnnouncements(
             (data || [])
@@ -100,8 +106,12 @@ export default function WelcomeOverlay() {
     };
     load();
     const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
-  }, [pathname, user?.id]);
+    return () => {
+      cancelled = true;
+      requestId += 1;
+      clearInterval(interval);
+    };
+  }, [pathname, user?.id, dismissedKey, loading]);
 
   const dismiss = (id) => {
     saveDismissed(dismissedKey, id);

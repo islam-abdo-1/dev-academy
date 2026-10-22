@@ -84,7 +84,7 @@ export default function HtmlViewer({ open, url, title, onClose }) {
           ) : (
             <iframe
               title={title || "محتوى تفاعلي"}
-              sandbox=""
+              sandbox="allow-scripts"
               srcDoc={html}
               referrerPolicy="no-referrer"
               className="w-full h-full border-0"

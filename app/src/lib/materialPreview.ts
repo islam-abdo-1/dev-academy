@@ -121,6 +121,13 @@ export function isHtmlItem(item: PreviewItem): boolean {
   return /\.html?($|\?)/i.test(item.url || "");
 }
 
+export function isSupabaseStorageHtml(item: PreviewItem): boolean {
+  return (
+    isHtmlItem(item) &&
+    /\.supabase\.co\/storage\/v1\/object\//i.test(item.url || "")
+  );
+}
+
 export function isVideoItem(item: PreviewItem): boolean {
   if (item.type === "video") return true;
   return /youtu\.?be|vimeo\.com/i.test(item.url || "");
