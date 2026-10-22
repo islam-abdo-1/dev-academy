@@ -45,13 +45,13 @@ export default function DashboardLayout() {
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
-      <div className="md:ml-60 flex flex-col min-h-screen relative z-10">
+      <div className="md:ml-60 flex flex-col min-h-screen relative">
         <DashboardHeader
           role={role}
           onMenuToggle={() => setMobileOpen(true)}
           onSearchOpen={() => setSearchOpen(true)}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <main className="relative z-10 flex-1 p-4 sm:p-6 lg:p-8">
           <Outlet context={{ role, user }} />
         </main>
         <DashboardFooter />

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardList, Send, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  CalendarClock,
+  ClipboardList,
+  Link2,
+  MapPin,
+  Send,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
@@ -18,10 +27,10 @@ import {
 import { MAJORS } from "@/lib/majors";
 
 const YEAR_OPTIONS = [
-  { value: "year-1", label: "Year 1" },
-  { value: "year-2", label: "Year 2" },
-  { value: "year-3", label: "Year 3" },
-  { value: "year-4", label: "Year 4" },
+  { value: "year-1", label: "السنة الأولى" },
+  { value: "year-2", label: "السنة الثانية" },
+  { value: "year-3", label: "السنة الثالثة" },
+  { value: "year-4", label: "السنة الرابعة" },
 ];
 
 const SEMESTER_OPTIONS = [
@@ -37,6 +46,36 @@ const YEAR_LABELS = {
   "year-4": "سنة 4",
 };
 const SEMESTER_LABELS = { "sem-1": "ترم 1", "sem-2": "ترم 2" };
+
+function FormSection({ icon: Icon, title, hint, children }) {
+  return (
+    <section className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-3 sm:p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon size={14} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          {hint && (
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              {hint}
+            </p>
+          )}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MetaChip({ icon: Icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      {Icon && <Icon size={10} className="shrink-0 opacity-70" />}
+      {children}
+    </span>
+  );
+}
 
 export default function TasksPanel({ user }) {
   const { isSuperAdmin } = useAuth();
@@ -153,221 +192,331 @@ export default function TasksPanel({ user }) {
   return (
     <Card className="neon-card bg-card mb-8">
       <CardHeader>
-        <CardTitle className="text-lg text-foreground flex items-center gap-2">
-          <ClipboardList size={20} className="text-primary" />
-          إيه المطلوب مني؟
-          <span className="text-xs text-muted-foreground font-normal">
-            (إضافة مهام للطلاب حسب المسار)
+        <CardTitle className="flex items-start gap-2 text-lg text-foreground">
+          <ClipboardList size={20} className="mt-0.5 shrink-0 text-primary" />
+          <span>
+            المهام المطلوبة
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              أضف مهمة وحدد المسار والموعد، وتظهر تلقائيًا للطلاب المناسبين.
+            </span>
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <form onSubmit={handleSubmit} className="space-y-3">
-          <Input
-            placeholder="عنوان المهمة..."
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            required
-            className="bg-input border-border"
-          />
-          <Textarea
-            placeholder="التفاصيل — المطلوب تسليمه بالظبط..."
-            value={details}
-            onChange={(event) => setDetails(event.target.value)}
-            className="bg-input border-border min-h-[70px]"
-          />
-          <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
-            <p className="text-xs text-muted-foreground font-mono mb-1">
-              {"// المسار المستهدف "}
-              <span className="text-primary/60">(اختياري)</span>
-              {` — ${scopeLabel || "لكل الطلاب"}`}
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <Select value={major} onValueChange={setMajor}>
-                <SelectTrigger className="bg-input border-border text-xs h-8">
-                  <SelectValue placeholder="القسم" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border max-h-48">
-                  <SelectItem value="all">كل الأقسام</SelectItem>
-                  {MAJORS.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="bg-input border-border text-xs h-8">
-                  <SelectValue placeholder="السنة" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="all">كل السنوات</SelectItem>
-                  {YEAR_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={semester} onValueChange={setSemester}>
-                <SelectTrigger className="bg-input border-border text-xs h-8">
-                  <SelectValue placeholder="الترم" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="all">كل الترمات</SelectItem>
-                  {SEMESTER_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <FormSection
+            icon={ClipboardList}
+            title="بيانات المهمة"
+            hint="عنوان واضح وتفاصيل مختصرة تساعد الطالب يعرف المطلوب بالظبط."
+          >
+            <div className="space-y-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  عنوان المهمة
+                </span>
+                <Input
+                  placeholder="مثال: تسليم مشروع الـ Python"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  required
+                  className="bg-input border-border"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  التفاصيل
+                </span>
+                <Textarea
+                  placeholder="اكتب المطلوب تسليمه، وأي تعليمات مهمة..."
+                  value={details}
+                  onChange={(event) => setDetails(event.target.value)}
+                  className="bg-input border-border min-h-[80px]"
+                />
+              </label>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="اسم المادة..."
-                value={subjectName}
-                onChange={(event) => setSubjectName(event.target.value)}
-                list="task-subject-options"
-                className="bg-input border-border text-xs h-8"
-              />
-              <datalist id="task-subject-options">
-                {subjectSuggestions.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-              <div className="flex items-center gap-1">
-                {[
-                  { id: "lecture", label: "محاضرة" },
-                  { id: "section", label: "سيكشن" },
-                ].map((option) => {
-                  const selected = itemType === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setItemType(selected ? "" : option.id)}
-                      className="flex-1 px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all"
-                      style={{
-                        background: selected
-                          ? "hsla(190,100%,50%,0.12)"
-                          : "transparent",
-                        borderColor: selected
-                          ? "hsla(190,100%,50%,0.4)"
-                          : "hsl(var(--border))",
-                        color: selected
-                          ? "hsl(190,100%,50%)"
-                          : "hsl(var(--muted-foreground))",
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+          </FormSection>
+
+          <FormSection
+            icon={MapPin}
+            title="المسار المستهدف"
+            hint={
+              scopeLabel
+                ? `هتظهر لطلاب: ${scopeLabel}`
+                : "اختياري — من غير تحديد هتظهر لكل الطلاب."
+            }
+          >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  القسم
+                </span>
+                <Select value={major} onValueChange={setMajor}>
+                  <SelectTrigger className="bg-input border-border h-9 w-full text-xs">
+                    <SelectValue placeholder="كل الأقسام" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border max-h-48">
+                    <SelectItem value="all">كل الأقسام</SelectItem>
+                    {MAJORS.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  السنة
+                </span>
+                <Select value={year} onValueChange={setYear}>
+                  <SelectTrigger className="bg-input border-border h-9 w-full text-xs">
+                    <SelectValue placeholder="كل السنوات" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">كل السنوات</SelectItem>
+                    {YEAR_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  الترم
+                </span>
+                <Select value={semester} onValueChange={setSemester}>
+                  <SelectTrigger className="bg-input border-border h-9 w-full text-xs">
+                    <SelectValue placeholder="كل الترمات" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">كل الترمات</SelectItem>
+                    {SEMESTER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  المادة
+                </span>
+                <Input
+                  placeholder="اسم المادة..."
+                  value={subjectName}
+                  onChange={(event) => setSubjectName(event.target.value)}
+                  list="task-subject-options"
+                  className="bg-input border-border h-9 text-sm"
+                />
+                <datalist id="task-subject-options">
+                  {subjectSuggestions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </label>
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  نوع المحتوى
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "lecture", label: "محاضرة" },
+                    { id: "section", label: "سيكشن" },
+                  ].map((option) => {
+                    const selected = itemType === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setItemType(selected ? "" : option.id)}
+                        className="h-9 rounded-lg border px-2 text-xs font-semibold transition-all"
+                        style={{
+                          background: selected
+                            ? "hsla(190,100%,50%,0.12)"
+                            : "transparent",
+                          borderColor: selected
+                            ? "hsla(190,100%,50%,0.4)"
+                            : "hsl(var(--border))",
+                          color: selected
+                            ? "hsl(190,100%,50%)"
+                            : "hsl(var(--muted-foreground))",
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder={
-                  itemType === "section"
-                    ? "اسم/رقم السيكشن..."
-                    : "اسم/رقم المحاضرة..."
-                }
-                value={itemName}
-                onChange={(event) => setItemName(event.target.value)}
-                className="bg-input border-border text-xs h-8"
-              />
-              <Input
-                placeholder="رقم الجروب (اختياري)"
-                value={groupName}
-                onChange={(event) => setGroupName(event.target.value)}
-                className="bg-input border-border text-xs h-8"
-              />
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {itemType === "section"
+                    ? "اسم/رقم السيكشن"
+                    : itemType === "lecture"
+                      ? "اسم/رقم المحاضرة"
+                      : "اسم/رقم المحاضرة أو السيكشن"}
+                </span>
+                <Input
+                  placeholder={
+                    itemType === "section"
+                      ? "مثال: سيكشن 3"
+                      : "مثال: محاضرة 5"
+                  }
+                  value={itemName}
+                  onChange={(event) => setItemName(event.target.value)}
+                  className="bg-input border-border h-9 text-sm"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  رقم الجروب (اختياري)
+                </span>
+                <Input
+                  placeholder="مثال: 2"
+                  value={groupName}
+                  onChange={(event) => setGroupName(event.target.value)}
+                  className="bg-input border-border h-9 text-sm"
+                />
+              </label>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-[10px] text-muted-foreground font-mono mb-1">
-                  // الديد لاين
-                </p>
+          </FormSection>
+
+          <FormSection
+            icon={CalendarClock}
+            title="الموعد والتسليم"
+            hint="حدد آخر موعد، وأضف رابط فورم التسليم لو متاح."
+          >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  آخر موعد (اختياري)
+                </span>
                 <Input
                   type="date"
                   value={dueDate}
                   onChange={(event) => setDueDate(event.target.value)}
-                  className="bg-input border-border text-xs h-8"
+                  className="bg-input border-border h-9 text-sm"
                 />
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground font-mono mb-1">
-                  // فورم التسليم
-                </p>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                  <Link2 size={11} />
+                  فورم التسليم (اختياري)
+                </span>
                 <Input
-                  placeholder="https://forms.gle/... (اختياري)"
+                  placeholder="https://forms.gle/..."
                   value={formUrl}
                   onChange={(event) => setFormUrl(event.target.value)}
                   dir="ltr"
-                  className="bg-input border-border text-xs h-8"
+                  className="bg-input border-border h-9 text-sm"
                 />
-              </div>
+              </label>
             </div>
-          </div>
+          </FormSection>
+
           <Button
             type="submit"
             disabled={sending || !title.trim()}
-            className="w-full bg-primary text-primary-foreground hover:brightness-110 flex items-center gap-2"
+            className="flex h-10 w-full items-center gap-2 bg-primary text-primary-foreground hover:brightness-110"
           >
             <Send size={15} />
-            {sending ? "جاري الإضافة..." : "إضافة المهمة 📋"}
+            {sending ? "جاري الإضافة..." : "إضافة المهمة"}
           </Button>
         </form>
         {tasks.length > 0 && (
-          <div>
-            <p className="text-xs text-muted-foreground font-mono mb-3">
-              {"// المهام المُضافة"}
-            </p>
-            <div className="space-y-3 max-h-72 overflow-y-auto">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="rounded-lg p-3 border border-border flex items-start gap-3"
-                  style={{ background: "hsla(190,100%,50%,0.04)" }}
-                >
-                  <ClipboardList
-                    size={16}
-                    className="text-primary flex-shrink-0 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {task.title}
-                    </p>
-                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                      {"📍 "}
-                      {[
-                        MAJOR_LABELS[task.major] || "كل الأقسام",
-                        YEAR_LABELS[task.year] || "كل السنوات",
-                        SEMESTER_LABELS[task.semester] || "كل الترمات",
-                      ].join(" · ")}
-                      {task.subject_name && ` — ${task.subject_name}`}
-                      {task.item_name &&
-                        ` — ${task.item_type === "section" ? "سيكشن" : "محاضرة"} ${task.item_name}`}
-                      {task.group_name && ` — جروب ${task.group_name}`}
-                      {task.created_by && ` — بواسطة ${task.created_by}`}
-                    </p>
-                    {task.due_date && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {`⏰ الديد لاين: ${formatDate(new Date(task.due_date), "MMM d, yyyy")}`}
-                      </p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ClipboardList size={14} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  المهام المضافة
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  آخر {tasks.length} مهمة — راجعها أو احذف غير المطلوب.
+                </p>
+              </div>
+            </div>
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {tasks.map((task) => {
+                const scope = [
+                  MAJOR_LABELS[task.major] || "كل الأقسام",
+                  YEAR_LABELS[task.year] || "كل السنوات",
+                  SEMESTER_LABELS[task.semester] || "كل الترمات",
+                ].join(" · ");
+                const itemLabel =
+                  task.item_type === "section" ? "سيكشن" : "محاضرة";
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/30 p-3"
+                  >
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <ClipboardList size={15} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground">
+                          {task.title}
+                        </p>
+                        {task.due_date && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            <CalendarClock size={10} />
+                            {formatDate(new Date(task.due_date), "MMM d, yyyy")}
+                          </span>
+                        )}
+                      </div>
+                      {task.details && (
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          {task.details}
+                        </p>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <MetaChip icon={MapPin}>{scope}</MetaChip>
+                        {task.subject_name && (
+                          <MetaChip icon={BookOpen}>
+                            {task.subject_name}
+                          </MetaChip>
+                        )}
+                        {task.item_name && (
+                          <MetaChip icon={ClipboardList}>
+                            {`${itemLabel} ${task.item_name}`}
+                          </MetaChip>
+                        )}
+                        {task.group_name && (
+                          <MetaChip icon={Users}>
+                            {`جروب ${task.group_name}`}
+                          </MetaChip>
+                        )}
+                      </div>
+                      {task.created_by && (
+                        <p className="mt-2 text-[10px] text-muted-foreground/80">
+                          بواسطة {task.created_by}
+                        </p>
+                      )}
+                    </div>
+                    {(isSuperAdmin || task.created_by === user?.email) && (
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        aria-label="حذف المهمة"
+                        className="shrink-0 p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     )}
                   </div>
-                  {(isSuperAdmin || task.created_by === user?.email) && (
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      className="p-1.5 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

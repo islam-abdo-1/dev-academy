@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Download, ExternalLink, X } from "lucide-react";
 import { downloadHref, isStorageFile, mediaKind } from "./ItemRow";
+import { safeHttpUrl } from "@/lib/materialPreview";
 
 export default function MediaViewer({ open, item, onClose }) {
   useEffect(() => {
@@ -8,13 +9,19 @@ export default function MediaViewer({ open, item, onClose }) {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") onClose();
     };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open, onClose]);
 
   if (!open || !item) return null;
 
   const kind = mediaKind(item) || "video";
+  const safeUrl = safeHttpUrl(item.url);
 
   return (
     <div
@@ -33,7 +40,7 @@ export default function MediaViewer({ open, item, onClose }) {
         <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-border flex-shrink-0">
           <p className="flex-1 text-sm text-foreground truncate">{item.title}</p>
           <a
-            href={item.url}
+            href={safeUrl}
             target="_blank"
             rel="noopener noreferrer"
             title="افتح في تاب جديد"
@@ -65,11 +72,11 @@ export default function MediaViewer({ open, item, onClose }) {
         </div>
         {kind === "audio" ? (
           <div className="bg-background/60 px-4 py-8 sm:px-8 sm:py-10">
-            <audio src={item.url} controls className="w-full" />
+            <audio src={safeUrl} controls className="w-full" />
           </div>
         ) : (
           <video
-            src={item.url}
+            src={safeUrl}
             controls
             playsInline
             className="w-full max-h-[75vh] bg-black"

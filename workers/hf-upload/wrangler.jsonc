@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dev-academy-hf-upload",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-21",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "HF_NAMESPACE": "devacademy-fcai",
+    "HF_BUCKET": "devacademy-media",
+    "SUPABASE_URL": "https://uytyvnoqhqivvhujdxoc.supabase.co",
+    "ALLOWED_ORIGINS": "https://dev-academy.pages.dev,http://localhost:5173,http://localhost:4173,http://127.0.0.1:5173"
+  }
+}

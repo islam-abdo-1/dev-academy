@@ -4,17 +4,19 @@ import { Lock } from "lucide-react";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import HtmlViewer from "./HtmlViewer";
-import MediaViewer from "./MediaViewer";
 import ItemRow from "./ItemRow";
 
-export default function ChapterFiles({ chapterId, info }) {
+export default function ChapterFiles({
+  chapterId,
+  info,
+  hideWhenEmpty = false,
+  showHeading = false,
+  emptyLabel = "No files yet.",
+}) {
   const { user } = useAuth();
   const location = useLocation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewerItem, setViewerItem] = useState(null);
-  const [mediaItem, setMediaItem] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -59,35 +61,24 @@ export default function ChapterFiles({ chapterId, info }) {
   }
 
   if (!items.length) {
+    if (hideWhenEmpty) return null;
     return (
-      <p className="text-xs text-muted-foreground italic pt-2">No files yet.</p>
+      <p className="text-xs text-muted-foreground italic pt-2">{emptyLabel}</p>
     );
   }
 
   return (
     <div className="pt-1 space-y-1">
+      {showHeading && (
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 px-1 pt-2">
+          ملفات إضافية
+        </p>
+      )}
       {[...items]
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            color={info.color}
-            onOpenHtml={setViewerItem}
-            onOpenMedia={setMediaItem}
-          />
+          <ItemRow key={item.id} item={item} color={info.color} />
         ))}
-      <HtmlViewer
-        open={!!viewerItem}
-        url={viewerItem?.url}
-        title={viewerItem?.title}
-        onClose={() => setViewerItem(null)}
-      />
-      <MediaViewer
-        open={!!mediaItem}
-        item={mediaItem}
-        onClose={() => setMediaItem(null)}
-      />
     </div>
   );
 }

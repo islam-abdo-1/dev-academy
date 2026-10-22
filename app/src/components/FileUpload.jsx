@@ -7,10 +7,17 @@ import {
   Presentation,
   Upload,
   X,
+  Video,
+  Music,
+  FileCode,
+  Archive,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
-import { Progress } from "@/components/ui/progress";
+import { compressStudyImage } from "@/lib/images/compress";
+import {
+  MAX_HF_FILE_BYTES,
+  uploadStudyFile,
+} from "@/lib/storage/hfWorker";
 
 const ACCEPTED_EXTENSIONS = [
   ".pdf",
@@ -18,12 +25,31 @@ const ACCEPTED_EXTENSIONS = [
   ".jpg",
   ".jpeg",
   ".webp",
+  ".gif",
   ".html",
+  ".htm",
   ".docx",
   ".pptx",
+  ".doc",
+  ".ppt",
+  ".xlsx",
+  ".xls",
+  ".zip",
+  ".rar",
+  ".7z",
+  ".mp4",
+  ".webm",
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".py",
+  ".txt",
+  ".md",
+  ".csv",
+  ".json",
 ];
 const WARN_SIZE = 10 * 1024 * 1024;
-const MAX_SIZE = 45 * 1024 * 1024;
+const MAX_SIZE = MAX_HF_FILE_BYTES;
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + " B";
@@ -35,26 +61,60 @@ function classify(fileName) {
   const ext = fileName.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return "pdf";
   if (ext === "html" || ext === "htm") return "html";
-  if (ext === "docx") return "docx";
-  if (ext === "pptx") return "pptx";
-  return "image";
+  if (ext === "docx" || ext === "doc") return "docx";
+  if (ext === "pptx" || ext === "ppt") return "pptx";
+  if (ext === "xlsx" || ext === "xls") return "xlsx";
+  if (ext === "zip" || ext === "rar" || ext === "7z") return "archive";
+  if (ext === "mp4" || ext === "webm") return "video";
+  if (ext === "mp3" || ext === "wav" || ext === "m4a") return "audio";
+  if (ext === "py" || ext === "txt" || ext === "md" || ext === "csv" || ext === "json") return "code";
+  if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "webp" || ext === "gif") return "image";
+  return "other";
 }
 
-function sanitizeName(fileName) {
-  return fileName.replace(/[^a-zA-Z0-9._-]+/g, "_");
-}
-
-async function sha256Hex(file) {
-  try {
-    const buffer = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest("SHA-256", buffer);
-    return Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("")
-      .slice(0, 12);
-  } catch {
-    return Date.now().toString(36);
+function getIconForType(type) {
+  switch (type) {
+    case "pdf":
+      return <FileText size={24} className="text-red-400" />;
+    case "html":
+      return <LayoutTemplate size={24} className="text-emerald-400" />;
+    case "docx":
+      return <FileText size={24} className="text-sky-400" />;
+    case "pptx":
+      return <Presentation size={24} className="text-amber-400" />;
+    case "xlsx":
+      return <FileText size={24} className="text-emerald-400" />;
+    case "archive":
+      return <Archive size={24} className="text-orange-400" />;
+    case "video":
+      return <Video size={24} className="text-purple-400" />;
+    case "audio":
+      return <Music size={24} className="text-pink-400" />;
+    case "code":
+      return <FileCode size={24} className="text-green-400" />;
+    case "image":
+      return <Image size={24} className="text-blue-400" />;
+    default:
+      return <FileText size={24} className="text-muted-foreground" />;
   }
+}
+
+function getUploadErrorMessage(error) {
+  if (!error) return "فشل رفع الملف — حاول تاني";
+  const msg = error.message || String(error);
+  if (msg.includes("90MB") || msg.includes("large") || msg.includes("413")) {
+    return "حجم الملف يتجاوز الحد المسموح 90MB";
+  }
+  if (msg.includes("quota") || msg.includes("مساحة") || msg.includes("507")) {
+    return "تم تجاوز حد التخزين المتاح — تواصل مع الإدارة";
+  }
+  if (msg.includes("الجلسة") || msg.includes("مصرح") || msg.includes("401")) {
+    return "غير مصرح — سجل دخولك مجدداً وحاول مرة أخرى";
+  }
+  if (msg.includes("مهيأة") || msg.includes("الاتصال")) {
+    return msg;
+  }
+  return `فشل رفع الملف: ${msg}`;
 }
 
 export default function FileUpload({ onFileUploaded }) {
@@ -68,7 +128,7 @@ export default function FileUpload({ onFileUploaded }) {
     const ext = "." + (selected.name.split(".").pop() || "").toLowerCase();
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
       toast.error(
-        "نوع الملف غير مسموح — المسموح: PDF, PNG, JPG, WEBP, HTML, DOCX, PPTX",
+        "نوع الملف غير مسموح — المسموح: PDF, HTML, DOCX/PPTX/DOC/PPT/XLSX, صور, ZIP/RAR/7Z, MP4/MP3, PY/TXT/MD/CSV/JSON",
       );
       return;
     }
@@ -79,34 +139,34 @@ export default function FileUpload({ onFileUploaded }) {
       return;
     }
     if (selected.size > WARN_SIZE) {
-      toast.warning("الملف أكبر من 10MB — التحميل ممكن يكون بطيء");
+      toast.warning("الملف أكبر من 10MB — التحميل للطلاب ممكن يكون بطيء");
     }
     setUploading(true);
-    setProgress(10);
-    const timer = setInterval(() => {
-      setProgress((value) => Math.min(value + 15, 85));
-    }, 200);
+    setProgress(0);
     try {
-      const hash = await sha256Hex(selected);
-      const path = `uploads/${hash}_${sanitizeName(selected.name)}`;
-      const { error } = await supabase.storage
-        .from("media")
-        .upload(path, selected, { cacheControl: "31536000" });
-      if (error) throw error;
-      const { data } = supabase.storage.from("media").getPublicUrl(path);
+      const compressed = selected.type.startsWith("image/")
+        ? await compressStudyImage(selected)
+        : null;
+      const uploadFile = compressed?.file || selected;
+      if (uploadFile.size > MAX_SIZE) {
+        throw new Error("حجم الملف يتجاوز الحد المسموح 90MB");
+      }
+      const result = await uploadStudyFile(uploadFile, {
+        onProgress: setProgress,
+      });
       setProgress(100);
-      const type = classify(selected.name);
+      const type = classify(uploadFile.name);
       setFile({
         name: selected.name,
-        size: selected.size,
+        size: uploadFile.size,
         type,
-        url: data.publicUrl,
+        url: result.url,
       });
-      onFileUploaded(data.publicUrl, type);
-    } catch {
-      toast.error("فشل رفع الملف — حاول تاني");
+      onFileUploaded(result.url, type);
+      toast.success("تم رفع الملف بنجاح");
+    } catch (err) {
+      toast.error(getUploadErrorMessage(err));
     } finally {
-      clearInterval(timer);
       setTimeout(() => {
         setUploading(false);
         setProgress(0);
@@ -143,17 +203,7 @@ export default function FileUpload({ onFileUploaded }) {
   if (file) {
     return (
       <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border">
-        {file.type === "pdf" ? (
-          <FileText size={24} className="text-red-400" />
-        ) : file.type === "html" ? (
-          <LayoutTemplate size={24} className="text-emerald-400" />
-        ) : file.type === "docx" ? (
-          <FileText size={24} className="text-sky-400" />
-        ) : file.type === "pptx" ? (
-          <Presentation size={24} className="text-amber-400" />
-        ) : (
-          <Image size={24} className="text-blue-400" />
-        )}
+        {getIconForType(file.type)}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-foreground truncate">{file.name}</p>
           <p className="text-xs text-muted-foreground">
@@ -169,6 +219,8 @@ export default function FileUpload({ onFileUploaded }) {
       </div>
     );
   }
+
+  const acceptedList = ACCEPTED_EXTENSIONS.join(", ").replace(/\./g, "").toUpperCase();
 
   return (
     <div
@@ -200,8 +252,12 @@ export default function FileUpload({ onFileUploaded }) {
             size={32}
             className="text-primary animate-spin mx-auto"
           />
-          <p className="text-sm text-muted-foreground">Uploading...</p>
-          <Progress value={progress} className="max-w-xs mx-auto h-2" />
+          <p className="text-sm text-muted-foreground">
+            جاري الرفع... {progress}%
+          </p>
+          <p className="text-xs text-muted-foreground">
+            لا تغلق النافذة أثناء الرفع — الحد الأقصى 90MB
+          </p>
         </div>
       ) : (
         <>
@@ -210,7 +266,7 @@ export default function FileUpload({ onFileUploaded }) {
             Drop files here or click to browse
           </p>
           <p className="text-xs text-muted-foreground">
-            PDF, PNG, JPG, WEBP, HTML, DOCX, PPTX
+            {ACCEPTED_EXTENSIONS.join(", ").replace(/\./g, "").toUpperCase()}
           </p>
         </>
       )}

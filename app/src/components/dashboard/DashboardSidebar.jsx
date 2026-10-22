@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   BookOpen,
+  ClipboardCheck,
   FileText,
+  HardDrive,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -33,6 +35,18 @@ export const NAV_ITEMS = [
     icon: FileText,
     href: '/dashboard/resources',
     roles: ['ADMIN', 'SUPER_ADMIN'],
+  },
+  {
+    label: 'Publish Requests',
+    icon: ClipboardCheck,
+    href: '/dashboard/publish-requests',
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+  },
+  {
+    label: 'Storage',
+    icon: HardDrive,
+    href: '/dashboard/storage',
+    roles: ['SUPER_ADMIN'],
   },
   { label: 'Team', icon: Users, href: '/dashboard/team', roles: ['SUPER_ADMIN'] },
   {
@@ -89,7 +103,7 @@ export default function DashboardSidebar({ role, user, mobileOpen, onCloseMobile
       <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2" title="Return to Home">
           <img
-            src="/logo-mark.png"
+            src="/logo-mark.webp"
             alt="Dev Academy Logo"
             className="w-8 h-8 rounded-lg object-contain border border-primary/30"
           />

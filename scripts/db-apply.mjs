@@ -63,22 +63,32 @@ async function main() {
     process.exit(1);
   }
 
-  await runQuery(
-    ref,
-    token,
-    `create table if not exists public._app_migrations (
-       id text primary key,
-       applied_at timestamptz not null default now()
-     );
-     alter table public._app_migrations enable row level security;`
-  );
+  if (!listOnly) {
+    await runQuery(
+      ref,
+      token,
+      `create table if not exists public._app_migrations (
+         id text primary key,
+         applied_at timestamptz not null default now()
+       );
+       alter table public._app_migrations enable row level security;`
+    );
+  }
 
-  const appliedRows = await runQuery(
+  const tableExistsRows = await runQuery(
     ref,
     token,
-    "select id from public._app_migrations order by id;"
+    "select to_regclass('public._app_migrations') is not null as exists;"
   );
-  const applied = new Set(appliedRows.map((r) => r.id));
+  const applied = new Set();
+  if (tableExistsRows[0]?.exists) {
+    const appliedRows = await runQuery(
+      ref,
+      token,
+      "select id from public._app_migrations order by id;"
+    );
+    for (const row of appliedRows) applied.add(row.id);
+  }
 
   const files = (await readdir(MIGRATIONS_DIR))
     .filter((f) => f.endsWith(".sql"))

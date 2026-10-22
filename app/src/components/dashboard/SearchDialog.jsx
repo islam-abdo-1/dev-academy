@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  BookOpen,
-  FileText,
-  Link as LinkIcon,
-  LoaderCircle,
-  Search,
-} from "lucide-react";
+import { BookOpen, LoaderCircle, Search } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { db } from "@/lib/api";
 import { searchResources, searchSubjects } from "@/lib/subjectSearch";
-import { isHtmlItem } from "@/components/browse/ItemRow";
+import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
+import { materialFromResource } from "@/components/material/types";
+import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
 
 export default function SearchDialog({ open, onClose }) {
+  const { openMaterial } = useMaterialViewer();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState({ subjects: [], resources: [] });
   const [loading, setLoading] = useState(false);
@@ -53,8 +50,7 @@ export default function SearchDialog({ open, onClose }) {
     if (item._type === "subject") {
       navigate("/dashboard/subjects");
     } else if (item._type === "resource") {
-      if (item.url && !isHtmlItem({ file_type: item.type, url: item.url }))
-        window.open(item.url, "_blank");
+      if (item.url) openMaterial(materialFromResource(item));
       else navigate("/dashboard/resources");
     }
     onClose();
@@ -109,15 +105,6 @@ export default function SearchDialog({ open, onClose }) {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [open, items, activeIndex]);
-
-  const typeIcon = (type) =>
-    type === "pdf" ? (
-      <FileText size={16} className="text-red-400" />
-    ) : type === "link" ? (
-      <LinkIcon size={16} className="text-blue-400" />
-    ) : (
-      <FileText size={16} className="text-muted-foreground" />
-    );
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -176,7 +163,11 @@ export default function SearchDialog({ open, onClose }) {
                         : "text-foreground hover:bg-sidebar-accent/50"
                     }`}
                   >
-                    {typeIcon(resource.type)}
+                    <MaterialTypeIcon
+                      type={resource.type}
+                      url={resource.url}
+                      size={16}
+                    />
                     {resource.title}
                   </button>
                 );

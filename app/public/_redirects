@@ -1,1 +1,11 @@
-/*    /index.html   200
+# Legacy admin URLs redirect to their canonical dashboard locations.
+/admin /dashboard 301
+/admin/ /dashboard 301
+/admin/publish-requests /dashboard/publish-requests 301
+/admin/storage /dashboard/storage 301
+
+# Share links use a minimal shell (noindex, no canonical).
+/s/* /app-shell 200
+
+# Subject detail is client-routed; give it a shell with dashboard metadata.
+/dashboard/subjects/* /dashboard-shell 200

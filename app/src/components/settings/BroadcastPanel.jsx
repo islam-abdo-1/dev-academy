@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Megaphone, Send, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  Mail,
+  MapPin,
+  Megaphone,
+  MessageSquare,
+  Send,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
@@ -24,11 +33,41 @@ import {
 import { MAJORS } from "@/lib/majors";
 
 const YEAR_OPTIONS = [
-  { value: "year-1", label: "Year 1" },
-  { value: "year-2", label: "Year 2" },
-  { value: "year-3", label: "Year 3" },
-  { value: "year-4", label: "Year 4" },
+  { value: "year-1", label: "السنة الأولى" },
+  { value: "year-2", label: "السنة الثانية" },
+  { value: "year-3", label: "السنة الثالثة" },
+  { value: "year-4", label: "السنة الرابعة" },
 ];
+
+function FormSection({ icon: Icon, title, hint, children }) {
+  return (
+    <section className="space-y-3 rounded-xl border border-border/60 bg-muted/10 p-3 sm:p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon size={14} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          {hint && (
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              {hint}
+            </p>
+          )}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MetaChip({ icon: Icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      {Icon && <Icon size={10} className="shrink-0 opacity-70" />}
+      {children}
+    </span>
+  );
+}
 
 export default function BroadcastPanel({ user }) {
   const { isSuperAdmin } = useAuth();
@@ -257,42 +296,58 @@ export default function BroadcastPanel({ user }) {
   return (
     <Card className="neon-card bg-card mb-8">
       <CardHeader>
-        <CardTitle className="text-lg text-foreground flex items-center gap-2">
-          <Megaphone size={20} className="text-primary" />
-          إرسال إعلان / رسالة
+        <CardTitle className="flex items-start gap-2 text-lg text-foreground">
+          <Megaphone size={20} className="mt-0.5 shrink-0 text-primary" />
+          <span>
+            نشر الإعلان والرسائل
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              اختر النوع والمستهدفين، ثم اكتب المحتوى وراجع المعاينة قبل النشر.
+            </span>
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(NOTICE_TYPES).map(([key, config]) => {
-              const Icon = config.icon;
-              const selected = type === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setType(key)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border"
-                  style={{
-                    background: selected ? config.bg : "transparent",
-                    border: `1px solid ${selected ? config.border : "hsl(var(--border))"}`,
-                    color: selected
-                      ? config.color
-                      : "hsl(var(--muted-foreground))",
-                  }}
-                >
-                  <Icon size={12} />
-                  {config.label}
-                </button>
-              );
-            })}
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground font-mono mb-2">
-              {"// إرسال إلى: "}
-              <span className="text-primary">{audienceLabel}</span>
-            </p>
+          {audience === "all" && (
+            <FormSection
+              icon={Megaphone}
+              title="نوع الإعلان"
+              hint="النوع بيحدد شكل وألوان الإعلان في واجهة المستخدم."
+            >
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {Object.entries(NOTICE_TYPES).map(([key, config]) => {
+                  const Icon = config.icon;
+                  const selected = type === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setType(key)}
+                      className="flex h-9 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-semibold transition-all"
+                      style={{
+                        background: selected ? config.bg : "transparent",
+                        borderColor: selected
+                          ? config.border
+                          : "hsl(var(--border))",
+                        color: selected
+                          ? config.color
+                          : "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      <Icon size={12} />
+                      {config.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </FormSection>
+          )}
+
+          <FormSection
+            icon={Users}
+            title="المستلمون"
+            hint={`هيتم الإرسال إلى: ${audienceLabel}`}
+          >
             <div className="flex flex-wrap gap-2">
               {TARGETS.map((target) => {
                 const Icon = target.icon;
@@ -302,7 +357,7 @@ export default function BroadcastPanel({ user }) {
                     key={target.id}
                     type="button"
                     onClick={() => toggleTarget(target.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all"
+                    className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all"
                     style={{
                       background: selected ? target.bg : "transparent",
                       borderColor: selected
@@ -319,7 +374,7 @@ export default function BroadcastPanel({ user }) {
                       target.id !== "all" &&
                       target.id !== "specific" && (
                         <span
-                          className="w-1.5 h-1.5 rounded-full inline-block ml-0.5"
+                          className="ml-0.5 inline-block h-1.5 w-1.5 rounded-full"
                           style={{ background: target.color }}
                         />
                       )}
@@ -327,113 +382,163 @@ export default function BroadcastPanel({ user }) {
                 );
               })}
             </div>
-          </div>
-          {audience === "specific" && (
-            <Select value={specificEmail} onValueChange={setSpecificEmail}>
-              <SelectTrigger className="bg-input border-border">
-                <SelectValue placeholder="اختر المستخدم..." />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border max-h-48">
-                {users
-                  .filter((item) => !item.disabled)
-                  .map((item) => (
-                    <SelectItem key={item.id} value={item.email}>
-                      {item.full_name
-                        ? `${item.full_name} — ${item.email}`
-                        : item.email}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-2">
-            <p className="text-xs text-muted-foreground font-mono mb-1">
-              {"// المسار المستهدف "}
-              <span className="text-primary/60">(اختياري)</span>
-              {audience === "all"
-                ? " — الإعلان يظهر في المسار ده بس"
-                : " — يُرفق بالرسالة كبيان للمسار"}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Select value={pathSection} onValueChange={setPathSection}>
-                <SelectTrigger className="bg-input border-border text-xs h-8">
-                  <SelectValue placeholder="القسم" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border max-h-48">
-                  <SelectItem value="all">كل الأقسام</SelectItem>
-                  {MAJORS.map((major) => (
-                    <SelectItem key={major.id} value={major.id}>
-                      {major.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={pathYear} onValueChange={setPathYear}>
-                <SelectTrigger className="bg-input border-border text-xs h-8">
-                  <SelectValue placeholder="السنة" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="all">كل السنوات</SelectItem>
-                  {YEAR_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {path && (
-              <p
-                className="text-xs font-mono mt-1"
-                style={{ color: "hsl(190,100%,50%)" }}
-              >
-                {"📍 "}
-                {path}
-              </p>
+            {audience === "specific" && (
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  المستخدم المستهدف
+                </span>
+                <Select value={specificEmail} onValueChange={setSpecificEmail}>
+                  <SelectTrigger className="bg-input border-border h-9 w-full">
+                    <SelectValue placeholder="اختر المستخدم..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border max-h-48">
+                    {users
+                      .filter((item) => !item.disabled)
+                      .map((item) => (
+                        <SelectItem key={item.id} value={item.email}>
+                          {item.full_name
+                            ? `${item.full_name} — ${item.email}`
+                            : item.email}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </label>
             )}
-          </div>
-          <Input
-            placeholder="عنوان الرسالة..."
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            required
-            className="bg-input border-border"
-          />
-          <Textarea
-            placeholder={
+          </FormSection>
+
+          <FormSection
+            icon={MapPin}
+            title="المسار المستهدف (اختياري)"
+            hint={
               audience === "all"
-                ? "نص الرسالة التي ستصل لجميع المستخدمين..."
-                : "نص الرسالة الخاصة..."
+                ? "لو حددت مسار، الإعلان هيظهر لطلاب المسار ده فقط."
+                : "المسار هيظهر كمعلومة إضافية داخل الرسالة."
             }
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            required
-            className="bg-input border-border min-h-[80px]"
-          />
-          {(title || body) && audience === "all" && (
-            <AnnouncementPreview preview={{ title, body, type }} />
-          )}
+          >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  القسم
+                </span>
+                <Select value={pathSection} onValueChange={setPathSection}>
+                  <SelectTrigger className="bg-input border-border h-9 w-full text-xs">
+                    <SelectValue placeholder="كل الأقسام" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border max-h-48">
+                    <SelectItem value="all">كل الأقسام</SelectItem>
+                    {MAJORS.map((major) => (
+                      <SelectItem key={major.id} value={major.id}>
+                        {major.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  السنة
+                </span>
+                <Select value={pathYear} onValueChange={setPathYear}>
+                  <SelectTrigger className="bg-input border-border h-9 w-full text-xs">
+                    <SelectValue placeholder="كل السنوات" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="all">كل السنوات</SelectItem>
+                    {YEAR_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+            {path && <MetaChip icon={MapPin}>{path}</MetaChip>}
+          </FormSection>
+
+          <FormSection
+            icon={MessageSquare}
+            title="محتوى الرسالة"
+            hint={
+              audience === "all"
+                ? "العنوان والنص هيظهروا في إعلان عام لكل المستخدمين."
+                : "اكتب رسالة واضحة ومختصرة للمستهدفين."
+            }
+          >
+            <div className="space-y-2">
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  عنوان الرسالة
+                </span>
+                <Input
+                  placeholder="مثال: موعد تسليم مشروع التخرج"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  required
+                  className="bg-input border-border"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  نص الرسالة
+                </span>
+                <Textarea
+                  placeholder={
+                    audience === "all"
+                      ? "اكتب نص الإعلان الذي سيصل لجميع المستخدمين..."
+                      : "اكتب نص الرسالة..."
+                  }
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  required
+                  className="bg-input border-border min-h-[90px]"
+                />
+              </label>
+            </div>
+            {(title || body) && audience === "all" && (
+              <div className="space-y-2 rounded-lg border border-border/60 bg-background/30 p-2.5">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  معاينة الإعلان
+                </p>
+                <AnnouncementPreview
+                  preview={{ title, body, type, isPreview: true }}
+                />
+              </div>
+            )}
+          </FormSection>
+
           <Button
             type="submit"
             disabled={sending || !title.trim() || !body.trim()}
-            className="w-full bg-primary text-primary-foreground hover:brightness-110 flex items-center gap-2"
+            className="flex h-10 w-full items-center gap-2 bg-primary text-primary-foreground hover:brightness-110"
           >
             <Send size={15} />
             {sending
               ? "جاري الإرسال..."
               : audience === "specific"
-                ? `إرسال لـ ${specificEmail || "..."}`
+                ? "إرسال للمستخدم المحدد"
                 : audience === "group"
-                  ? `إرسال لـ ${audienceLabel} 📨`
-                  : "إرسال للجميع 📢"}
+                  ? `إرسال إلى ${audienceLabel}`
+                  : "نشر للجميع"}
           </Button>
         </form>
         {announcements.length > 0 && (
-          <div>
-            <p className="text-xs text-muted-foreground font-mono mb-3">
-              {"// الإعلانات العامة المُرسلة"}
-            </p>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Megaphone size={14} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  الإعلانات المنشورة
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {announcements.length} إعلان — تقدر توقفه أو تحذفه في أي وقت.
+                </p>
+              </div>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
               {announcements.map((announcement) => {
                 const config =
                   NOTICE_TYPES[announcement.type] || NOTICE_TYPES.info;
@@ -442,7 +547,7 @@ export default function BroadcastPanel({ user }) {
                 return (
                   <div
                     key={announcement.id}
-                    className="rounded-lg p-3 border flex items-start gap-3"
+                    className="flex items-start gap-3 rounded-xl border p-3"
                     style={{
                       background: active ? config.bg : "hsla(0,0%,50%,0.05)",
                       borderColor: active
@@ -460,38 +565,13 @@ export default function BroadcastPanel({ user }) {
                         marginTop: 2,
                       }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">
-                        {announcement.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {announcement.body}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {announcement.created_by && (
-                          <span className="text-primary">
-                            {announcement.created_by} ·{" "}
-                          </span>
-                        )}
-                        {announcement.created_date &&
-                          formatDate(
-                            new Date(announcement.created_date),
-                            "MMM d, HH:mm",
-                          )}
-                      </p>
-                      {announcement.path && (
-                        <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                          {"📍 "}
-                          {announcement.path}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                          {announcement.title}
                         </p>
-                      )}
-                    </div>
-                    {(isSuperAdmin ||
-                      announcement.created_by === user?.email) && (
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => toggleAnnouncement(announcement)}
-                          className="px-2 py-1 rounded text-xs font-mono transition-all border"
+                        <span
+                          className="shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold"
                           style={{
                             background: active ? config.bg : "transparent",
                             borderColor: active
@@ -501,13 +581,57 @@ export default function BroadcastPanel({ user }) {
                               ? config.color
                               : "hsl(var(--muted-foreground))",
                           }}
-                          title={active ? "إيقاف" : "تفعيل"}
                         >
-                          {active ? "ON" : "OFF"}
+                          {active ? "ظاهر الآن" : "متوقف"}
+                        </span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                        {announcement.body}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {announcement.created_by && (
+                          <MetaChip icon={Mail}>
+                            {announcement.created_by}
+                          </MetaChip>
+                        )}
+                        {announcement.created_date && (
+                          <MetaChip icon={CalendarClock}>
+                            {formatDate(
+                              new Date(announcement.created_date),
+                              "MMM d, HH:mm",
+                            )}
+                          </MetaChip>
+                        )}
+                        {announcement.path && (
+                          <MetaChip icon={MapPin}>
+                            {announcement.path}
+                          </MetaChip>
+                        )}
+                      </div>
+                    </div>
+                    {(isSuperAdmin ||
+                      announcement.created_by === user?.email) && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          onClick={() => toggleAnnouncement(announcement)}
+                          className="rounded-md border px-2 py-1 text-[10px] font-semibold transition-all"
+                          style={{
+                            background: active ? config.bg : "transparent",
+                            borderColor: active
+                              ? config.border
+                              : "hsl(var(--border))",
+                            color: active
+                              ? config.color
+                              : "hsl(var(--muted-foreground))",
+                          }}
+                          title={active ? "إيقاف الإعلان" : "تفعيل الإعلان"}
+                        >
+                          {active ? "إيقاف" : "تفعيل"}
                         </button>
                         <button
                           onClick={() => deleteAnnouncement(announcement.id)}
-                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="حذف الإعلان"
+                          className="p-1.5 text-muted-foreground transition-colors hover:text-destructive"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -520,44 +644,59 @@ export default function BroadcastPanel({ user }) {
           </div>
         )}
         {sentBatches.length > 0 && (
-          <div>
-            <p className="text-xs text-muted-foreground font-mono mb-3">
-              {"// الرسائل المُرسلة "}
-              <span className="text-primary/60">(آخر 100 رسالة)</span>
-            </p>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Send size={14} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  الرسائل المرسلة
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  آخر {sentBatches.length} دفعة إرسال.
+                </p>
+              </div>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
               {sentBatches.map((batch) => (
                 <div
                   key={batch.key}
-                  className="rounded-lg p-3 border border-border flex items-start gap-3"
-                  style={{ background: "hsla(190,100%,50%,0.04)" }}
+                  className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/30 p-3"
                 >
-                  <Send
-                    size={16}
-                    className="text-primary flex-shrink-0 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Send size={14} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">
                       {batch.subject || "(بدون عنوان)"}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {batch.ids.length === 1
-                        ? "لـ مستلم واحد"
-                        : `لـ ${batch.ids.length} مستلم`}
-                      {isSuperAdmin && ` · من: ${batch.from_email}`}
-                      {batch.created_date &&
-                        ` · ${formatDate(new Date(batch.created_date), "MMM d, HH:mm")}`}
-                    </p>
-                    {batch.path && (
-                      <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                        {"📍 "}
-                        {batch.path}
-                      </p>
-                    )}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <MetaChip icon={Users}>
+                        {batch.ids.length === 1
+                          ? "مستلم واحد"
+                          : `${batch.ids.length} مستلم`}
+                      </MetaChip>
+                      {isSuperAdmin && batch.from_email && (
+                        <MetaChip icon={Mail}>{batch.from_email}</MetaChip>
+                      )}
+                      {batch.created_date && (
+                        <MetaChip icon={CalendarClock}>
+                          {formatDate(
+                            new Date(batch.created_date),
+                            "MMM d, HH:mm",
+                          )}
+                        </MetaChip>
+                      )}
+                      {batch.path && (
+                        <MetaChip icon={MapPin}>{batch.path}</MetaChip>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => deleteBatch(batch)}
-                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+                    aria-label="حذف الرسالة المرسلة"
+                    className="shrink-0 p-1.5 text-muted-foreground transition-colors hover:text-destructive"
                   >
                     <Trash2 size={13} />
                   </button>

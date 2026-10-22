@@ -6,7 +6,11 @@ dist/
 exports/
 .browser-profile/
 audit/
+supabase/.temp/
 *.log
 .DS_Store
+.opencode/
+.playwright-mcp/
+.wrangler/
 Thumbs.db
 ACCOUNTS-CREDENTIALS.txt

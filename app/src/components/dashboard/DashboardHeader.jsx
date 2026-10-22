@@ -106,9 +106,9 @@ export default function DashboardHeader({ role, onMenuToggle, onSearchOpen }) {
       >
         <Menu size={20} />
       </button>
-      <div className="md:hidden flex items-center gap-2">
+      <div className="hidden shrink-0 items-center gap-2 sm:flex md:hidden">
         <img
-          src="/logo-mark.png"
+          src="/logo-mark.webp"
           alt="Dev Academy"
           className="w-7 h-7 rounded object-cover"
         />
@@ -122,12 +122,14 @@ export default function DashboardHeader({ role, onMenuToggle, onSearchOpen }) {
         <span className="hidden sm:inline">Search subjects & resources...</span>
         <span className="sm:hidden">Search...</span>
         <kbd className="hidden sm:inline-flex ml-auto px-2 py-0.5 rounded bg-muted/50 border border-border/50 text-xs text-muted-foreground">
-          ⌘K
+          Ctrl K
         </kbd>
       </button>
       <div className="flex items-center gap-2">
         <NotificationBell userEmail={profile?.email} />
-        <RoleBadge role={role} />
+        <div className="hidden sm:block">
+          <RoleBadge role={role} />
+        </div>
       </div>
     </header>
   )

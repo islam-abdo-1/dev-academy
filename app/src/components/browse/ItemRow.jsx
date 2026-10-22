@@ -1,4 +1,5 @@
 import {
+  BookmarkPlus,
   Download,
   ExternalLink,
   File,
@@ -8,79 +9,38 @@ import {
   Music,
   Play,
   Presentation,
+  Share2,
 } from "lucide-react";
+import {
+  downloadHref,
+  getPreviewKind,
+  isHtmlItem,
+  isPlayableMedia,
+  isStorageFile,
+  isVideoItem,
+  mediaKind,
+} from "@/lib/materialPreview";
+import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
+import { materialFromOfficial } from "@/components/material/types";
 
-export function isHtmlItem(item) {
-  if (item.file_type === "html" || item.file_type === "htm") return true;
-  return /\.html?($|\?)/i.test(item.url || "");
-}
-
-export function isVideoItem(item) {
-  if (item.type === "video") return true;
-  return /youtu\.?be|vimeo\.com/i.test(item.url || "");
-}
-
-const HF_FILE_PATTERN = /huggingface\.co\/.+\/resolve\//i;
-
-export function isStorageFile(item) {
-  const url = item.url || "";
-  return (
-    url.includes("/storage/v1/object/public/media/") ||
-    HF_FILE_PATTERN.test(url)
-  );
-}
-
-export function downloadHref(item) {
-  const url = item.url || "";
-  const separator = url.includes("?") ? "&" : "?";
-  if (HF_FILE_PATTERN.test(url)) {
-    return `${url}${separator}download=true`;
-  }
-  const stored = decodeURIComponent(
-    url.split("?")[0].split("/").pop() || "file",
-  );
-  const cleanName = stored.replace(/^[0-9a-f]{9,12}_/i, "") || "file";
-  return `${url}${separator}download=${encodeURIComponent(cleanName)}`;
-}
-
-const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "m4v", "mkv", "ogv"];
-const AUDIO_EXTENSIONS = [
-  "mp3",
-  "m4a",
-  "aac",
-  "wav",
-  "ogg",
-  "oga",
-  "opus",
-  "flac",
-];
-
-const isExternalPlatformUrl = (url) =>
-  /youtu\.?be|vimeo\.com|drive\.google|docs\.google|dropbox\.com/i.test(url);
-
-export function mediaKind(item) {
-  const url = item.url || "";
-  if (!url || isHtmlItem(item) || isExternalPlatformUrl(url)) return null;
-  const fileType = (item.file_type || "").toLowerCase().replace(/^\./, "");
-  const extension = (
-    url.split("?")[0].match(/\.([a-z0-9]+)$/i)?.[1] || ""
-  ).toLowerCase();
-  if (
-    VIDEO_EXTENSIONS.includes(fileType) ||
-    VIDEO_EXTENSIONS.includes(extension)
-  )
-    return "video";
-  if (
-    AUDIO_EXTENSIONS.includes(fileType) ||
-    AUDIO_EXTENSIONS.includes(extension)
-  )
-    return "audio";
-  return null;
-}
-
-export function isPlayableMedia(item) {
-  return mediaKind(item) !== null;
-}
+export {
+  downloadHref,
+  getPreviewKind,
+  isDocumentPreviewItem,
+  isHtmlItem,
+  isImagePreviewItem,
+  isOfficePreviewItem,
+  isOneDriveItem,
+  isPdfPreviewItem,
+  isPlayableMedia,
+  isStorageFile,
+  isTextPreviewItem,
+  isVideoItem,
+  isYouTubeItem,
+  getYouTubeId,
+  getYouTubePlaylistId,
+  mediaKind,
+} from "@/lib/materialPreview";
 
 function ItemIcon({ item }) {
   const className = "flex-shrink-0";
@@ -101,7 +61,10 @@ function ItemIcon({ item }) {
   return <File size={12} className={className} />;
 }
 
-export default function ItemRow({ item, color, onOpenHtml, onOpenMedia }) {
+export default function ItemRow({ item, color, kind = "lecture" }) {
+  const { openMaterial, openQuickSave, openShare } = useMaterialViewer();
+  const material = materialFromOfficial(item, kind);
+  const previewKind = getPreviewKind(item);
   const itemClass =
     "flex items-center gap-2 text-xs p-2 rounded-lg hover:bg-white/5 transition-colors group flex-1 min-w-0 text-left";
   const icon = <ItemIcon item={item} />;
@@ -113,43 +76,50 @@ export default function ItemRow({ item, color, onOpenHtml, onOpenMedia }) {
     />
   );
 
+  const content = (
+    <>
+      {icon}
+      {label}
+      {trailing}
+    </>
+  );
+
   return (
     <div className="flex items-center gap-0.5">
-      {isHtmlItem(item) ? (
+      {item.url ? (
         <button
           type="button"
-          onClick={() => onOpenHtml(item)}
+          onClick={() => openMaterial(material)}
           className={itemClass}
           style={{ color }}
         >
-          {icon}
-          {label}
-          {trailing}
-        </button>
-      ) : isPlayableMedia(item) ? (
-        <button
-          type="button"
-          onClick={() => onOpenMedia?.(item)}
-          className={itemClass}
-          style={{ color }}
-        >
-          {icon}
-          {label}
-          {trailing}
+          {content}
         </button>
       ) : (
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={itemClass}
-          style={{ color }}
-        >
-          {icon}
-          {label}
-          {trailing}
-        </a>
+        <span className={itemClass} style={{ color }}>
+          {content}
+        </span>
       )}
+
+      <button
+        type="button"
+        onClick={() => openQuickSave(material)}
+        title="حفظ في الخزنة"
+        aria-label={`حفظ ${item.title} في الخزنة`}
+        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-white/5 transition-colors flex-shrink-0"
+      >
+        <BookmarkPlus size={12} />
+      </button>
+      <button
+        type="button"
+        onClick={() => openShare(material)}
+        title="مشاركة"
+        aria-label={`مشاركة ${item.title}`}
+        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-white/5 transition-colors flex-shrink-0"
+      >
+        <Share2 size={12} />
+      </button>
+
       {!isVideoItem(item) && isStorageFile(item) && (
         <a
           href={downloadHref(item)}

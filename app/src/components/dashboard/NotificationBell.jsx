@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   BookOpen,
-  Check,
+  CheckCheck,
   ClipboardList,
+  Clock,
   ExternalLink,
   FolderOpen,
+  Inbox,
+  ListChecks,
   Mail,
   MapPin,
   Presentation,
@@ -18,6 +21,7 @@ import { db } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { formatDate } from "@/lib/formatDate";
+import { safeHttpUrl } from "@/lib/materialPreview";
 import {
   Select,
   SelectContent,
@@ -80,14 +84,15 @@ function DueChip({ dueDate }) {
         };
   return (
     <span
-      className="flex-shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded border whitespace-nowrap"
+      className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px]"
       style={{
         background: palette.bg,
         borderColor: palette.border,
         color: palette.color,
       }}
     >
-      {`⏰ ${formatDate(due, "MMM d, yyyy")}`}
+      <Clock size={10} className="shrink-0" />
+      {formatDate(due, "MMM d, yyyy")}
       {overdue ? " · متأخر" : soon ? " · قريب" : ""}
     </span>
   );
@@ -95,8 +100,8 @@ function DueChip({ dueDate }) {
 
 function TaskChip({ icon: Icon, children }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-      {Icon && <Icon size={10} className="opacity-60 flex-shrink-0" />}
+    <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      {Icon && <Icon size={10} className="shrink-0 opacity-70" />}
       {children}
     </span>
   );
@@ -245,7 +250,9 @@ export default function NotificationBell({ userEmail }) {
   const sorted = [...messages].sort(
     (a, b) => new Date(b.created_date) - new Date(a.created_date),
   );
-  const unreadCount = sorted.filter((message) => !message.read).length;
+  const unreadMessages = sorted.filter((message) => !message.read);
+  const readMessages = sorted.filter((message) => message.read);
+  const unreadCount = unreadMessages.length;
 
   const markRead = async (message) => {
     if (message.read) return;
@@ -257,18 +264,17 @@ export default function NotificationBell({ userEmail }) {
     event.stopPropagation();
     await db.remove("messages", message.id);
     refreshMessages();
-    toast.success("Message deleted");
+    toast.success("تم حذف الإشعار");
   };
 
   const markAllRead = async () => {
-    const unread = sorted.filter((message) => !message.read);
     await Promise.all(
-      unread.map((message) =>
+      unreadMessages.map((message) =>
         db.update("messages", message.id, { read: true }),
       ),
     );
     refreshMessages();
-    toast.success("All marked as read");
+    toast.success("تم تحديد كل الإشعارات كمقروءة");
   };
 
   const scope = isLoggedIn
@@ -301,158 +307,210 @@ export default function NotificationBell({ userEmail }) {
   const badgeCount = unreadCount + unseenTaskCount;
 
   const tabClass = (active) =>
-    `flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+    `flex min-h-9 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-semibold transition-colors ${
       active
-        ? "bg-primary/15 text-primary"
-        : "text-muted-foreground hover:text-foreground"
+        ? "bg-primary/15 text-primary shadow-sm"
+        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
     }`;
+
+  const renderMessage = (message) => (
+    <div
+      key={message.id}
+      onClick={() => markRead(message)}
+      className={`flex items-start gap-3 border-b border-border/20 px-4 py-3 transition-colors hover:bg-primary/5 ${
+        message.read ? "" : "cursor-pointer bg-primary/[0.04]"
+      }`}
+    >
+      <span
+        className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+          message.read
+            ? "bg-muted/40 text-muted-foreground"
+            : "bg-primary/15 text-primary"
+        }`}
+      >
+        <Mail size={13} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 truncate text-[11px] font-semibold text-primary">
+            {message.from_name || message.from_email}
+          </p>
+          {!message.read && (
+            <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+              جديد
+            </span>
+          )}
+          {message.created_date && (
+            <span
+              className="ml-auto shrink-0 text-[10px] text-muted-foreground"
+              dir="ltr"
+            >
+              {formatDate(new Date(message.created_date), "MMM d")}
+            </span>
+          )}
+        </div>
+        {message.subject && (
+          <p className="mt-0.5 truncate text-xs font-medium text-foreground">
+            {message.subject}
+          </p>
+        )}
+        <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          {message.body}
+        </p>
+        {message.path && (
+          <div className="mt-1.5">
+            <TaskChip icon={MapPin}>{message.path}</TaskChip>
+          </div>
+        )}
+      </div>
+      {(isSuperAdmin || message.from_email === userEmail) && (
+        <button
+          onClick={(event) => deleteMessage(event, message)}
+          aria-label="حذف الإشعار"
+          className="mt-0.5 shrink-0 p-0.5 text-muted-foreground transition-colors hover:text-destructive"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen((value) => !value)}
-        aria-label="الإشعارات والمهام"
-        className="relative flex items-center justify-center w-9 h-9 rounded-lg border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/10 transition-all"
+        aria-label={`الإشعارات والمهام${badgeCount > 0 ? ` (${badgeCount > 9 ? "9+" : badgeCount})` : ""}`}
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
       >
         <Bell size={16} />
         {badgeCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
-            {badgeCount > 9 ? "9+" : badgeCount}
-          </span>
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background"
+          />
         )}
       </button>
       {open && (
         <div
-          className="fixed inset-x-3 top-[72px] z-50 w-auto max-w-[calc(100vw-24px)] max-h-[80vh] overflow-hidden rounded-xl border border-border/50 shadow-2xl flex flex-col sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-80 sm:max-w-none sm:max-h-96"
+          className="fixed inset-x-3 top-[72px] z-50 flex max-h-[80vh] w-auto max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-border/50 shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:max-h-[540px] sm:w-[380px] sm:max-w-none"
           style={{
             background: "hsl(240,30%,6%)",
             boxShadow:
               "0 8px 40px hsla(0,0%,0%,0.6), 0 0 20px hsla(190,100%,50%,0.06)",
           }}
         >
-          <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {isLoggedIn ? (
-                <>
-                  <button
-                    onClick={() => setTab("messages")}
-                    className={tabClass(activeTab === "messages")}
-                  >
-                    <Bell size={12} /> الإشعارات
-                    {unreadCount > 0 && (
-                      <span className="px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setTab("tasks")}
-                    className={tabClass(activeTab === "tasks")}
-                  >
-                    <ClipboardList size={12} /> إيه المطلوب مني؟
-                    {unseenTaskCount > 0 && (
-                      <span className="px-1 rounded-full bg-primary/20 text-primary text-[9px] font-bold">
-                        {unseenTaskCount}
-                      </span>
-                    )}
-                  </button>
-                </>
-              ) : (
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                  <ClipboardList size={14} className="text-primary" /> إيه
-                  المطلوب مني؟
-                </span>
-              )}
+          <div className="flex items-center justify-between gap-3 border-b border-border/30 px-3 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Bell size={15} />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {isLoggedIn ? "التنبيهات" : "إيه المطلوب مني؟"}
+                </p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {isLoggedIn
+                    ? "الإشعارات والمهام في مكان واحد"
+                    : "مهام المسار المختار"}
+                </p>
+              </div>
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+              aria-label="إغلاق التنبيهات"
+              className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
             >
               <X size={14} />
             </button>
           </div>
 
+          {isLoggedIn && (
+            <div className="border-b border-border/30 px-3 py-2">
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/30 p-1">
+                <button
+                  onClick={() => setTab("messages")}
+                  className={tabClass(activeTab === "messages")}
+                  aria-pressed={activeTab === "messages"}
+                >
+                  <Bell size={12} />
+                  الإشعارات
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-destructive px-1.5 text-[9px] font-bold text-destructive-foreground">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setTab("tasks")}
+                  className={tabClass(activeTab === "tasks")}
+                  aria-pressed={activeTab === "tasks"}
+                >
+                  <ListChecks size={12} />
+                  إيه المطلوب مني؟
+                  {unseenTaskCount > 0 && (
+                    <span className="rounded-full bg-primary/20 px-1.5 text-[9px] font-bold text-primary">
+                      {unseenTaskCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           {activeTab === "messages" ? (
             <>
-              <div className="flex items-center justify-between px-4 py-1.5 border-b border-border/20">
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {"// رسائل الإدارة"}
-                </span>
+              <div className="flex items-center justify-between gap-3 border-b border-border/20 px-4 py-2">
+                <div>
+                  <p className="text-[11px] font-medium text-foreground">
+                    رسائل الإدارة
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {unreadCount > 0
+                      ? `${unreadCount} غير مقروءة`
+                      : "كل الرسائل مقروءة"}
+                  </p>
+                </div>
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllRead}
-                    className="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                    className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-primary"
                   >
-                    <Check size={10} /> Mark all read
+                    <CheckCheck size={11} />
+                    تحديد الكل
                   </button>
                 )}
               </div>
-              <div className="overflow-y-auto flex-1">
+              <div className="flex-1 overflow-y-auto">
                 {sorted.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <Mail size={28} className="mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No messages yet.</p>
+                  <div className="flex flex-col items-center px-5 py-12 text-center">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted/30 text-muted-foreground">
+                      <Inbox size={22} />
+                    </span>
+                    <p className="mt-3 text-sm font-semibold text-foreground">
+                      لا توجد إشعارات
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      أي رسالة جديدة من الإدارة هتظهر هنا.
+                    </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border/20">
-                    {sorted.map((message) => (
-                      <div
-                        key={message.id}
-                        onClick={() => markRead(message)}
-                        className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-primary/5"
-                        style={{
-                          background: message.read
-                            ? "transparent"
-                            : "hsla(190,100%,50%,0.04)",
-                        }}
-                      >
-                        <div className="mt-1.5 flex-shrink-0">
-                          {message.read ? (
-                            <div className="w-2 h-2 rounded-full bg-muted" />
-                          ) : (
-                            <div className="w-2 h-2 rounded-full bg-primary" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1 mb-0.5">
-                            <p className="text-xs font-semibold text-primary truncate">
-                              {message.from_name || message.from_email}
-                            </p>
-                            <span className="text-[10px] text-muted-foreground ml-auto flex-shrink-0">
-                              {new Date(
-                                message.created_date,
-                              ).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "short",
-                              })}
-                            </span>
-                          </div>
-                          {message.subject && (
-                            <p className="text-xs font-medium text-foreground mb-0.5 truncate">
-                              {message.subject}
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {message.body}
-                          </p>
-                          {message.path && (
-                            <p className="text-[10px] font-mono text-muted-foreground/80 mt-0.5 truncate">
-                              {"📍 "}
-                              {message.path}
-                            </p>
-                          )}
-                        </div>
-                        {(isSuperAdmin ||
-                          message.from_email === userEmail) && (
-                          <button
-                            onClick={(event) => deleteMessage(event, message)}
-                            className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0 p-0.5 mt-0.5"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
+                  <div>
+                    {unreadMessages.length > 0 && (
+                      <div>
+                        <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          جديدة
+                        </p>
+                        {unreadMessages.map(renderMessage)}
                       </div>
-                    ))}
+                    )}
+                    {readMessages.length > 0 && (
+                      <div>
+                        <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          مقروءة
+                        </p>
+                        {readMessages.map(renderMessage)}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -460,163 +518,190 @@ export default function NotificationBell({ userEmail }) {
           ) : (
             <>
               {isLoggedIn ? (
-                <div className="px-4 py-2 border-b border-border/20">
-                  <p className="text-[10px] font-mono text-muted-foreground/70">
-                    {"// بتظهر لك مهام مسارك: "}
-                    <span className="text-foreground/80 font-medium">
-                      {profileScopeLabel}
+                <div className="border-b border-border/20 px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <MapPin size={11} className="shrink-0 text-primary" />
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        مهام مسارك
+                      </span>
+                      <span className="truncate text-[11px] font-medium text-foreground">
+                        {profileScopeLabel}
+                      </span>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      {visibleTasks.length}
                     </span>
-                  </p>
+                  </div>
                 </div>
               ) : (
-                <div className="px-3 py-2 border-b border-border/20 grid grid-cols-2 gap-2">
-                  <Select
-                    value={filters.major}
-                    onValueChange={(value) =>
-                      setFilters((current) => ({ ...current, major: value }))
-                    }
-                  >
-                    <SelectTrigger className="bg-input border-border text-xs h-8">
-                      <SelectValue placeholder="القسم" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="all">كل الأقسام</SelectItem>
-                      <SelectItem value="ai">ذكاء اصطناعي</SelectItem>
-                      <SelectItem value="cybersecurity">أمن سيبراني</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={filters.year}
-                    onValueChange={(value) =>
-                      setFilters((current) => ({ ...current, year: value }))
-                    }
-                  >
-                    <SelectTrigger className="bg-input border-border text-xs h-8">
-                      <SelectValue placeholder="السنة" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="all">كل السنوات</SelectItem>
-                      <SelectItem value="year-1">سنة 1</SelectItem>
-                      <SelectItem value="year-2">سنة 2</SelectItem>
-                      <SelectItem value="year-3">سنة 3</SelectItem>
-                      <SelectItem value="year-4">سنة 4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={filters.semester}
-                    onValueChange={(value) =>
-                      setFilters((current) => ({ ...current, semester: value }))
-                    }
-                  >
-                    <SelectTrigger className="bg-input border-border text-xs h-8">
-                      <SelectValue placeholder="الترم" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="all">كل الترمات</SelectItem>
-                      <SelectItem value="sem-1">ترم 1</SelectItem>
-                      <SelectItem value="sem-2">ترم 2</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={filters.group}
-                    onValueChange={(value) =>
-                      setFilters((current) => ({ ...current, group: value }))
-                    }
-                  >
-                    <SelectTrigger className="bg-input border-border text-xs h-8">
-                      <SelectValue placeholder="الجروب" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border max-h-48">
-                      <SelectItem value="all">كل الجروبات</SelectItem>
-                      {groupOptions.map((group) => (
-                        <SelectItem key={group} value={group}>
-                          {`جروب ${group}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="border-b border-border/20 p-3">
+                  <p className="mb-2 text-[10px] font-semibold text-muted-foreground">
+                    اختار مسارك
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select
+                      value={filters.major}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, major: value }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-full bg-input text-xs">
+                        <SelectValue placeholder="القسم" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="all">كل الأقسام</SelectItem>
+                        <SelectItem value="ai">ذكاء اصطناعي</SelectItem>
+                        <SelectItem value="cybersecurity">أمن سيبراني</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filters.year}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, year: value }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-full bg-input text-xs">
+                        <SelectValue placeholder="السنة" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="all">كل السنوات</SelectItem>
+                        <SelectItem value="year-1">سنة 1</SelectItem>
+                        <SelectItem value="year-2">سنة 2</SelectItem>
+                        <SelectItem value="year-3">سنة 3</SelectItem>
+                        <SelectItem value="year-4">سنة 4</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filters.semester}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({
+                          ...current,
+                          semester: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-full bg-input text-xs">
+                        <SelectValue placeholder="الترم" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        <SelectItem value="all">كل الترمات</SelectItem>
+                        <SelectItem value="sem-1">ترم 1</SelectItem>
+                        <SelectItem value="sem-2">ترم 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filters.group}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, group: value }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-full bg-input text-xs">
+                        <SelectValue placeholder="الجروب" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border max-h-48">
+                        <SelectItem value="all">كل الجروبات</SelectItem>
+                        {groupOptions.map((group) => (
+                          <SelectItem key={group} value={group}>
+                            {`جروب ${group}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
-              <div className="overflow-y-auto flex-1">
+              <div className="flex-1 overflow-y-auto">
                 {visibleTasks.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <ClipboardList
-                      size={28}
-                      className="mx-auto mb-2 opacity-30"
-                    />
-                    <p className="text-sm">
+                  <div className="flex flex-col items-center px-5 py-12 text-center">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted/30 text-muted-foreground">
+                      <ClipboardList size={22} />
+                    </span>
+                    <p className="mt-3 text-sm font-semibold text-foreground">
+                      {isLoggedIn ? "مفيش مهام مطلوبة منك حاليًا" : "مفيش مهام"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                       {isLoggedIn
-                        ? "مفيش مهام مطلوبة منك حاليًا 🎉"
-                        : "مفيش مهام في المسار المختار"}
+                        ? "أي مهمة جديدة تخص مسارك هتظهر هنا."
+                        : "جرّب تغيّر المسار المختار."}
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border/20">
+                  <div className="space-y-2 p-3">
                     {visibleTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="px-4 py-3 transition-colors hover:bg-primary/5"
+                        className="rounded-xl border border-border/70 bg-background/30 p-3"
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm font-semibold text-foreground leading-snug">
-                            {task.title}
-                          </p>
-                          <DueChip dueDate={task.due_date} />
-                        </div>
-                        {task.details && (
-                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
-                            {task.details}
-                          </p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                          {!isLoggedIn &&
-                            (task.major || task.year || task.semester) && (
-                              <TaskChip icon={MapPin}>
-                                {[
-                                  MAJOR_LABELS[task.major],
-                                  YEAR_LABELS[task.year],
-                                  SEMESTER_LABELS[task.semester],
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </TaskChip>
+                        <div className="flex items-start gap-3">
+                          <span
+                            aria-hidden="true"
+                            className="mt-0.5 h-5 w-5 shrink-0 rounded-md border-2 border-primary/35 bg-primary/5"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground">
+                                {task.title}
+                              </p>
+                              <DueChip dueDate={task.due_date} />
+                            </div>
+                            {task.details && (
+                              <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                                {task.details}
+                              </p>
                             )}
-                          {task.subject_name && (
-                            <TaskChip icon={BookOpen}>
-                              {task.subject_name}
-                            </TaskChip>
-                          )}
-                          {task.item_name && (
-                            <TaskChip
-                              icon={
-                                task.item_type === "section"
-                                  ? FolderOpen
-                                  : Presentation
-                              }
-                            >
-                              {task.item_type === "section"
-                                ? `سيكشن ${task.item_name}`
-                                : task.item_type === "lecture"
-                                  ? `محاضرة ${task.item_name}`
-                                  : task.item_name}
-                            </TaskChip>
-                          )}
-                          {task.group_name && (
-                            <TaskChip icon={Users}>
-                              {`جروب ${task.group_name}`}
-                            </TaskChip>
-                          )}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {!isLoggedIn &&
+                                (task.major || task.year || task.semester) && (
+                                  <TaskChip icon={MapPin}>
+                                    {[
+                                      MAJOR_LABELS[task.major],
+                                      YEAR_LABELS[task.year],
+                                      SEMESTER_LABELS[task.semester],
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ")}
+                                  </TaskChip>
+                                )}
+                              {task.subject_name && (
+                                <TaskChip icon={BookOpen}>
+                                  {task.subject_name}
+                                </TaskChip>
+                              )}
+                              {task.item_name && (
+                                <TaskChip
+                                  icon={
+                                    task.item_type === "section"
+                                      ? FolderOpen
+                                      : Presentation
+                                  }
+                                >
+                                  {task.item_type === "section"
+                                    ? `سيكشن ${task.item_name}`
+                                    : task.item_type === "lecture"
+                                      ? `محاضرة ${task.item_name}`
+                                      : task.item_name}
+                                </TaskChip>
+                              )}
+                              {task.group_name && (
+                                <TaskChip icon={Users}>
+                                  {`جروب ${task.group_name}`}
+                                </TaskChip>
+                              )}
+                            </div>
+                            {safeHttpUrl(task.form_url) && (
+                              <a
+                                href={safeHttpUrl(task.form_url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-2 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/15"
+                              >
+                                فتح فورم التسليم
+                                <ExternalLink size={11} />
+                              </a>
+                            )}
+                          </div>
                         </div>
-                        {task.form_url && (
-                          <a
-                            href={task.form_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-primary hover:underline"
-                          >
-                            <ExternalLink size={12} /> فورم التسليم
-                          </a>
-                        )}
                       </div>
                     ))}
                   </div>

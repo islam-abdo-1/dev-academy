@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, ExternalLink, GraduationCap } from "lucide-react";
+import { BookOpen, ExternalLink } from "lucide-react";
 import { db } from "@/lib/api";
+import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
+import { materialFromResource } from "@/components/material/types";
+import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
 import ConnectionError from "@/components/ConnectionError";
 import {
   SEM_LABELS,
@@ -24,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function BrowseSemester() {
   const { major, year, sem } = useParams();
   const search = usePublicSearch();
+  const { openMaterial } = useMaterialViewer();
   const info = getMajorInfo(major);
   const [subjects, setSubjects] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -160,12 +164,11 @@ export default function BrowseSemester() {
             </h2>
             <div className="space-y-3">
               {courses.map((course) => (
-                <a
+                <button
                   key={course.id}
-                  href={course.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-4 p-4 rounded-xl transition-colors hover:bg-white/5"
+                  type="button"
+                  onClick={() => openMaterial(materialFromResource(course))}
+                  className="flex w-full items-center gap-4 rounded-xl p-4 text-right transition-colors hover:bg-white/5"
                   style={{
                     background: "hsl(240, 30%, 7%)",
                     border: "1px solid hsl(var(--border))",
@@ -175,7 +178,11 @@ export default function BrowseSemester() {
                     className="p-2 rounded-lg flex-shrink-0"
                     style={{ background: "hsla(190,100%,50%,0.1)" }}
                   >
-                    <GraduationCap size={18} style={{ color: info.color }} />
+                    <MaterialTypeIcon
+                      type={course.type}
+                      url={course.url}
+                      size={18}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-foreground font-semibold">
@@ -189,7 +196,7 @@ export default function BrowseSemester() {
                     size={16}
                     className="text-muted-foreground flex-shrink-0"
                   />
-                </a>
+                </button>
               ))}
             </div>
           </motion.section>

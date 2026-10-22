@@ -8,6 +8,20 @@ import {
 } from "react";
 import { supabase } from "./supabase";
 
+/**
+ * @typedef {Object} AuthContextValue
+ * @property {import('@supabase/supabase-js').Session | null} session
+ * @property {import('@supabase/supabase-js').User | null} user
+ * @property {Record<string, any> | null} profile
+ * @property {boolean} loading
+ * @property {string | null} profileError
+ * @property {boolean} isStaff
+ * @property {boolean} isSuperAdmin
+ * @property {() => Promise<{ error: Error | null }>} signOut
+ * @property {() => Promise<Record<string, any> | null>} refreshProfile
+ */
+
+/** @type {import('react').Context<AuthContextValue>} */
 const AuthContext = createContext({
   session: null,
   user: null,
@@ -16,7 +30,7 @@ const AuthContext = createContext({
   profileError: null,
   isStaff: false,
   isSuperAdmin: false,
-  signOut: async () => {},
+  signOut: async () => ({ error: null }),
   refreshProfile: async () => null,
 });
 

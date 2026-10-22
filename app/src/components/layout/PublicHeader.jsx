@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, Search, X } from "lucide-react";
+import { Menu, Search, Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import UserAvatar from "@/components/UserAvatar";
+import VaultIcon from "@/components/icons/VaultIcon";
 import PublicSearchDialog from "./PublicSearchDialog";
 
 const NAV_LINKS = [
@@ -61,10 +62,10 @@ export default function PublicHeader({ onSearchOpen }) {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="relative flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2">
             <img
-              src="/logo-mark.png"
+              src="/logo-mark.webp"
               alt="Dev Academy Logo"
               style={{
                 height: "40px",
@@ -86,7 +87,7 @@ export default function PublicHeader({ onSearchOpen }) {
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-8">
             {NAV_LINKS.map((item) =>
               item.href.startsWith("/") ? (
                 <Link
@@ -110,6 +111,17 @@ export default function PublicHeader({ onSearchOpen }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {user && (
+              <Link
+                to="/profile?tab=saved"
+                title="القوائم المحفوظة"
+                aria-label="القوائم المحفوظة"
+                className="w-8 h-8 shrink-0 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+              >
+                <VaultIcon className="w-7 h-7" />
+              </Link>
+            )}
+
             <button
               onClick={openSearch}
               aria-label="بحث"
@@ -118,7 +130,7 @@ export default function PublicHeader({ onSearchOpen }) {
               <Search size={14} />
               <span>Search</span>
               <kbd className="px-1.5 py-0.5 rounded bg-muted/50 border border-border/50 text-xs">
-                ⌘K
+                Ctrl K
               </kbd>
             </button>
 
@@ -136,12 +148,13 @@ export default function PublicHeader({ onSearchOpen }) {
             )}
 
             {user && isStaff && (
-              <Link to="/dashboard">
+              <Link to="/dashboard" className="hidden sm:inline-flex">
                 <Button
                   className={BUTTON_CLASS}
                   style={{ boxShadow: "0 0 12px hsla(190, 100%, 50%, 0.3)" }}
                 >
-                  Admin Panel ⚙️
+                  <Settings size={15} />
+                  Admin Panel
                 </Button>
               </Link>
             )}
@@ -163,7 +176,7 @@ export default function PublicHeader({ onSearchOpen }) {
 
             <button
               aria-label={mobileOpen ? "إغلاق القائمة" : "فتح القائمة"}
-              className="md:hidden p-2 text-foreground min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="lg:hidden p-2 text-foreground min-w-[44px] min-h-[44px] flex items-center justify-center"
               onClick={() => setMobileOpen((value) => !value)}
             >
               {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -180,7 +193,7 @@ export default function PublicHeader({ onSearchOpen }) {
       )}
 
       {mobileOpen && (
-        <div className="md:hidden border-t border-border/30 bg-background/95 backdrop-blur-lg">
+        <div className="lg:hidden border-t border-border/30 bg-background/95 backdrop-blur-lg">
           <div className="px-4 py-4 space-y-3">
             <button
               onClick={() => {

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Activity, BookOpen, FileText } from 'lucide-react'
+import { Activity, BookOpen, FileText, UserPlus, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { db } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 
 function StatCard({ title, value, icon: Icon, loading }) {
   return (
@@ -31,6 +32,27 @@ export default function DashboardHome() {
   const [resourcesLoading, setResourcesLoading] = useState(true)
   const [activityLogs, setActivityLogs] = useState([])
   const [activityLogsLoading, setActivityLogsLoading] = useState(true)
+  const [analytics, setAnalytics] = useState(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    supabase.rpc('get_admin_analytics')
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) throw error
+        setAnalytics(data || null)
+      })
+      .catch(() => {
+        if (!cancelled) setAnalytics(null)
+      })
+      .finally(() => {
+        if (!cancelled) setAnalyticsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -96,6 +118,12 @@ export default function DashboardHome() {
           loading={resourcesLoading}
         />
         <StatCard title="Recent Actions" value={activityLogs.length} icon={Activity} loading={activityLogsLoading} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard title="Registered Users" value={analytics?.total_users ?? 0} icon={Users} loading={analyticsLoading} />
+        <StatCard title="New Users Today" value={analytics?.new_users_today ?? 0} icon={UserPlus} loading={analyticsLoading} />
+        <StatCard title="New Users (7 days)" value={analytics?.new_users_7d ?? 0} icon={UserPlus} loading={analyticsLoading} />
+        <StatCard title="Uploads Today" value={analytics?.uploads_today ?? 0} icon={FileText} loading={analyticsLoading} />
       </div>
       <Card className="neon-card bg-card">
         <CardHeader>

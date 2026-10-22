@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { getMajorInfo } from "@/components/browse/catalog";
@@ -43,7 +43,6 @@ const YEARS = [
 
 export default function BrowseMajor() {
   const { major } = useParams();
-  const navigate = useNavigate();
   const search = usePublicSearch();
   const info = getMajorInfo(major);
 
@@ -77,8 +76,7 @@ export default function BrowseMajor() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              onClick={() => navigate(`/${major}/${year.id}`)}
-              className="group cursor-pointer rounded-xl p-5"
+              className="group rounded-xl"
               style={{
                 background: "hsl(240, 30%, 7%)",
                 border: `1px solid ${info.border}`,
@@ -94,39 +92,44 @@ export default function BrowseMajor() {
                 event.currentTarget.style.boxShadow = "none";
               }}
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl font-bold text-foreground">
-                  {year.label}
-                </span>
-                <ChevronRight
-                  size={18}
-                  style={{ color: info.color }}
-                  className="group-hover:translate-x-1 transition-transform"
-                />
-              </div>
-              <p className="text-muted-foreground text-sm mb-4">{year.desc}</p>
-              <div className="flex gap-3">
-                <span
-                  className="text-xs px-2.5 py-1 rounded-full font-mono"
-                  style={{
-                    background: "hsla(190,100%,50%,0.08)",
-                    color: info.color,
-                    border: `1px solid ${info.border}`,
-                  }}
-                >
-                  {year.semesters} Semesters
-                </span>
-                <span
-                  className="text-xs px-2.5 py-1 rounded-full font-mono"
-                  style={{
-                    background: "hsla(190,100%,50%,0.08)",
-                    color: info.color,
-                    border: `1px solid ${info.border}`,
-                  }}
-                >
-                  {year.subjects} Subjects
-                </span>
-              </div>
+              <Link
+                to={`/${major}/${year.id}`}
+                className="block rounded-xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-2xl font-bold text-foreground">
+                    {year.label}
+                  </span>
+                  <ChevronRight
+                    size={18}
+                    style={{ color: info.color }}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
+                </div>
+                <p className="text-muted-foreground text-sm mb-4">{year.desc}</p>
+                <div className="flex gap-3">
+                  <span
+                    className="text-xs px-2.5 py-1 rounded-full font-mono"
+                    style={{
+                      background: "hsla(190,100%,50%,0.08)",
+                      color: info.color,
+                      border: `1px solid ${info.border}`,
+                    }}
+                  >
+                    {year.semesters} Semesters
+                  </span>
+                  <span
+                    className="text-xs px-2.5 py-1 rounded-full font-mono"
+                    style={{
+                      background: "hsla(190,100%,50%,0.08)",
+                      color: info.color,
+                      border: `1px solid ${info.border}`,
+                    }}
+                  >
+                    {year.subjects} Subjects
+                  </span>
+                </div>
+              </Link>
             </motion.div>
           ))}
         </div>

@@ -7,16 +7,18 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="16x16 32x32 48x48 64x64" />
     <link rel="icon" type="image/png" sizes="128x128" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Dev Academy — منصة تعليمية عربية نخبوية للذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
+      content="Dev Academy — ديف أكاديمي، منصة تعليمية عربية: محاضرات وملخصات وكتب وحلول وامتحانات سابقة في الذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
     />
     <meta
       name="keywords"
-      content="Dev Academy, ذكاء اصطناعي, علوم حاسب, محاضرات, ملخصات, حلول, منصة تعليمية, كلية حاسبات"
+      content="Dev Academy, ديف أكاديمي, ذكاء اصطناعي, أمن سيبراني, علوم حاسب, محاضرات, ملخصات, حلول, امتحانات سابقة, منصة تعليمية, كلية حاسبات"
     />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Dev Academy" />
     <meta name="application-name" content="Dev Academy" />
     <meta name="apple-mobile-web-app-title" content="Dev Academy" />
     <meta name="theme-color" content="#0a0a12" />
@@ -24,10 +26,10 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Dev Academy" />
-    <meta property="og:title" content="Dev Academy" />
+    <meta property="og:title" content="Dev Academy | ديف أكاديمي — منصة تعليمية" />
     <meta
       property="og:description"
-      content="Dev Academy — منصة تعليمية عربية نخبوية للذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
+      content="Dev Academy — ديف أكاديمي، منصة تعليمية عربية: محاضرات وملخصات وكتب وحلول وامتحانات سابقة في الذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
     />
     <meta property="og:url" content="https://dev-academy.pages.dev/" />
     <meta property="og:image" content="https://dev-academy.pages.dev/og-image.jpg" />
@@ -35,17 +37,17 @@
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Dev Academy — شعار المنصة" />
+    <meta property="og:image:alt" content="Dev Academy — ديف أكاديمي، شعار المنصة" />
     <meta property="og:locale" content="ar_EG" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Dev Academy" />
+    <meta name="twitter:title" content="Dev Academy | ديف أكاديمي — منصة تعليمية" />
     <meta
       name="twitter:description"
-      content="Dev Academy — منصة تعليمية عربية نخبوية للذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
+      content="Dev Academy — ديف أكاديمي، منصة تعليمية عربية: محاضرات وملخصات وكتب وحلول وامتحانات سابقة في الذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
     />
     <meta name="twitter:image" content="https://dev-academy.pages.dev/og-image.jpg" />
-    <meta name="twitter:image:alt" content="Dev Academy — شعار المنصة" />
+    <meta name="twitter:image:alt" content="Dev Academy — ديف أكاديمي، شعار المنصة" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -64,32 +66,72 @@
       />
     </noscript>
     <script type="application/ld+json">
-      [
-        {
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          "name": "Dev Academy",
-          "alternateName": "ديف أكاديمي",
-          "url": "https://dev-academy.pages.dev/",
-          "inLanguage": "ar"
-        },
-        {
-          "@context": "https://schema.org",
-          "@type": "EducationalOrganization",
-          "name": "Dev Academy",
-          "alternateName": "ديف أكاديمي",
-          "url": "https://dev-academy.pages.dev/",
-          "logo": "https://dev-academy.pages.dev/logo-full.jpg",
-          "image": "https://dev-academy.pages.dev/og-image.jpg",
-          "description": "منصة تعليمية عربية نخبوية للذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب.",
-          "inLanguage": "ar"
-        }
-      ]
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://dev-academy.pages.dev/#website",
+            "name": "Dev Academy",
+            "alternateName": [
+              "ديف أكاديمي",
+              "ديف اكاديمي",
+              "Dev Academy Egypt",
+              "ديف أكاديمي مصر",
+              "ديف اكاديمي مصر"
+            ],
+            "url": "https://dev-academy.pages.dev",
+            "inLanguage": "ar",
+            "publisher": { "@id": "https://dev-academy.pages.dev/#organization" }
+          },
+          {
+            "@type": "EducationalOrganization",
+            "@id": "https://dev-academy.pages.dev/#organization",
+            "name": "Dev Academy",
+            "alternateName": ["ديف أكاديمي", "ديف اكاديمي", "Dev Academy Egypt"],
+            "url": "https://dev-academy.pages.dev",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://dev-academy.pages.dev/icon-512.png",
+              "width": 512,
+              "height": 512
+            },
+            "image": "https://dev-academy.pages.dev/og-image.jpg",
+            "description": "منصة تعليمية عربية: محاضرات وملخصات وكتب وحلول وامتحانات سابقة في الذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب.",
+            "inLanguage": "ar",
+            "founder": { "@id": "https://dev-academy.pages.dev/#person" },
+            "audience": {
+              "@type": "EducationalAudience",
+              "educationalRole": "student"
+            }
+          },
+          {
+            "@type": "Person",
+            "@id": "https://dev-academy.pages.dev/#person",
+            "name": "Islam Abdo",
+            "alternateName": ["ENE.islam abdo", "ENE Islam Abdo"],
+            "url": "https://dev-academy.pages.dev",
+            "jobTitle": "Founder",
+            "worksFor": { "@id": "https://dev-academy.pages.dev/#organization" }
+          }
+        ]
+      }
     </script>
 
-    <title>Dev Academy</title>
+    <title>Dev Academy | ديف أكاديمي — منصة تعليمية</title>
   </head>
   <body>
+    <noscript>
+      <div style="font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.8">
+        <h1>Dev Academy — ديف أكاديمي</h1>
+        <p>منصة تعليمية عربية: محاضرات وملخصات وكتب وحلول وامتحانات سابقة في الذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب.</p>
+        <p>هذه صفحة تعريفية مختصرة تظهر عند تعطيل JavaScript، وليست نسخة كاملة من محتوى المنصة.</p>
+        <p>
+          <a href="/">الرئيسية</a> ·
+          <a href="/explore">استكشف التخصصات</a>
+        </p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <!-- Cloudflare Web Analytics -->

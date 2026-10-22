@@ -1,0 +1,6 @@
+import * as React from 'react';
+
+export declare const Progress: React.ForwardRefExoticComponent<
+  React.HTMLAttributes<HTMLDivElement> &
+    React.RefAttributes<HTMLDivElement> & { value?: number | null }
+>;

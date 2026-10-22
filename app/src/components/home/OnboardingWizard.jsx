@@ -43,7 +43,7 @@ export default function OnboardingWizard({ onComplete }) {
         <div className="text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
             <img
-              src="/logo-mark.png"
+              src="/logo-mark.webp"
               alt="Logo"
               style={{
                 width: 36,

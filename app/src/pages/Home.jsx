@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Brain, Shield } from "lucide-react";
+import { BookOpen, Brain, Rocket, Shield, UserRound } from "lucide-react";
 import PublicBackground from "@/components/layout/PublicBackground";
 import PublicHeader from "@/components/layout/PublicHeader";
 import PublicSearchDialog from "@/components/layout/PublicSearchDialog";
@@ -45,12 +45,7 @@ function HeroSection() {
         }}
       />
       <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-4xl sm:text-5xl md:text-7xl font-bold text-foreground mb-6 leading-tight"
-        >
+        <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold text-foreground mb-6 leading-tight">
           Master{" "}
           <span
             style={{
@@ -62,7 +57,7 @@ function HeroSection() {
           >
             AI & Cybersecurity
           </span>
-        </motion.h1>
+        </h1>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -128,6 +123,95 @@ function FeaturesSection() {
   );
 }
 
+function AboutSection() {
+  return (
+    <section
+      id="about"
+      className="py-24 px-4 relative z-10 scroll-mt-20"
+    >
+      <div className="max-w-4xl mx-auto">
+        <p className="text-xs font-mono text-primary mb-2 text-center">
+          ABOUT DEV ACADEMY
+        </p>
+        <h2 className="text-3xl sm:text-4xl font-bold text-center text-foreground mb-4">
+          About Dev Academy
+        </h2>
+        <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto leading-loose">
+          Dev Academy is an educational platform focused on computer science,
+          artificial intelligence, and cybersecurity. Its goal is to organize
+          academic and technical content and make it easier for students and
+          learners to access it.
+        </p>
+
+        <div className="space-y-4">
+          <div
+            className="p-6 rounded-xl border"
+            style={{
+              borderColor: "hsla(190, 100%, 50%, 0.2)",
+              background: "hsla(240, 30%, 7%, 0.8)",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <UserRound className="w-5 h-5 text-primary" />
+              <h3 className="text-foreground font-semibold">
+                <bdi dir="ltr">𝘌𝘕𝘎. 𝐼𝑠𝑙𝑎𝑚 𝐴𝑏𝑑𝑜</bdi>
+              </h3>
+            </div>
+            <p className="text-sm text-muted-foreground leading-loose">
+              Founder of Dev Academy, with a passion for computer science, web
+              development, and artificial intelligence. The platform began as
+              an initiative to share knowledge and make academic and technical
+              content simpler for students.
+            </p>
+          </div>
+
+          <div
+            className="p-6 rounded-xl border"
+            style={{
+              borderColor: "hsla(190, 100%, 50%, 0.2)",
+              background: "hsla(240, 30%, 7%, 0.8)",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <h3 className="text-foreground font-semibold">
+                What does the platform offer?
+              </h3>
+            </div>
+            <ul className="text-sm text-muted-foreground leading-relaxed space-y-2">
+              <li>• Organized specializations and study groups for easier access to content.</li>
+              <li>• Curated files, PDFs, and educational links.</li>
+              <li>• Free content available to students.</li>
+            </ul>
+          </div>
+
+          <div
+            className="p-6 rounded-xl border"
+            style={{
+              borderColor: "hsla(190, 100%, 50%, 0.2)",
+              background: "hsla(240, 30%, 7%, 0.8)",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Rocket className="w-5 h-5 text-primary" />
+              <h3 className="text-foreground font-semibold">Start here</h3>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Browse specializations and study groups to access available
+              materials and files.
+            </p>
+            <Link to="/explore" className="inline-block mt-4">
+              <Button className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium rounded-md hover:bg-primary/90">
+                Browse specializations
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -158,6 +242,7 @@ export default function Home() {
       <PublicHeader onSearchOpen={() => setSearchOpen(true)} />
       <HeroSection />
       <FeaturesSection />
+      <AboutSection />
       <PublicFooter />
       <PublicSearchDialog
         open={searchOpen}

@@ -1,0 +1,19 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders and generated artifacts, never real credentials"
+paths = [
+  '''\.env\.example$''',
+  '''\.dev\.vars\.example$''',
+  '''package-lock\.json$''',
+  '''pnpm-lock\.yaml$''',
+  '''yarn\.lock$''',
+  '''app/dist/.*''',
+]
+regexes = [
+  '''your-[a-z-]+''',
+  '''your_[a-z_]+''',
+  '''example\.com''',
+  '''placeholder''',
+]

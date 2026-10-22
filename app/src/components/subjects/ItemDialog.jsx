@@ -82,6 +82,13 @@ export default function ItemDialog({ open, onClose, editing, onSubmit, submittin
                   <SelectItem value="pdf">PDF</SelectItem>
                   <SelectItem value="image">Image</SelectItem>
                   <SelectItem value="html">HTML</SelectItem>
+                  <SelectItem value="docx">DOCX/DOC</SelectItem>
+                  <SelectItem value="pptx">PPTX/PPT</SelectItem>
+                  <SelectItem value="xlsx">XLSX/XLS</SelectItem>
+                  <SelectItem value="archive">ZIP/RAR/7Z</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="audio">Audio</SelectItem>
+                  <SelectItem value="code">Code (PY/TXT/MD/CSV/JSON)</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>

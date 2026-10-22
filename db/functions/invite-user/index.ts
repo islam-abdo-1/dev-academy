@@ -1,16 +1,32 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const DEFAULT_ORIGINS = ["https://dev-academy.pages.dev", "http://localhost:5173"];
 
-function json(body: unknown, status = 200) {
+function allowedOrigin(req: Request): string | null {
+  const origin = req.headers.get("Origin");
+  if (!origin) return null;
+  const configured = (Deno.env.get("ALLOWED_ORIGINS") || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...DEFAULT_ORIGINS, ...configured].includes(origin) ? origin : null;
+}
+
+function corsHeaders(req: Request) {
+  const origin = allowedOrigin(req);
+  return {
+    ...(origin ? { "Access-Control-Allow-Origin": origin } : {}),
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
+
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   });
 }
 
@@ -18,10 +34,14 @@ const ALLOWED_ROLES = ["user", "admin", "doctor", "assistant"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders(req) });
   }
   if (req.method !== "POST") {
-    return json({ error: "method not allowed" }, 405);
+    return json(req, { error: "method not allowed" }, 405);
+  }
+  const origin = req.headers.get("Origin");
+  if (origin && !allowedOrigin(req)) {
+    return json(req, { error: "origin not allowed" }, 403);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,12 +51,12 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) {
-    return json({ error: "missing authorization" }, 401);
+    return json(req, { error: "missing authorization" }, 401);
   }
 
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData?.user) {
-    return json({ error: "invalid token" }, 401);
+    return json(req, { error: "invalid token" }, 401);
   }
 
   const { data: caller } = await admin
@@ -46,23 +66,33 @@ Deno.serve(async (req) => {
     .maybeSingle();
 
   if (!caller || caller.disabled || caller.role !== "super_admin") {
-    return json({ error: "forbidden: super admin only" }, 403);
+    return json(req, { error: "forbidden: super admin only" }, 403);
   }
 
   let payload: { email?: string; role?: string };
   try {
     payload = await req.json();
   } catch {
-    return json({ error: "invalid json" }, 400);
+    return json(req, { error: "invalid json" }, 400);
   }
 
   const email = String(payload.email || "").trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return json({ error: "invalid email" }, 400);
+    return json(req, { error: "invalid email" }, 400);
   }
   const role = ALLOWED_ROLES.includes(String(payload.role))
     ? String(payload.role)
     : "user";
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+
+  if (existing) {
+    return json(req, { error: "email_already_registered", email }, 409);
+  }
 
   const { data: invited, error: inviteError } =
     await admin.auth.admin.inviteUserByEmail(email);
@@ -74,17 +104,9 @@ Deno.serve(async (req) => {
       message.includes("exists") ||
       message.includes("registered")
     ) {
-      const { data: existing } = await admin
-        .from("profiles")
-        .select("id")
-        .ilike("email", email)
-        .maybeSingle();
-      if (existing) {
-        await admin.from("profiles").update({ role }).eq("id", existing.id);
-        return json({ ok: true, existing: true, email, role });
-      }
+      return json(req, { error: "email_already_registered", email }, 409);
     }
-    return json({ error: inviteError.message }, 400);
+    return json(req, { error: inviteError.message }, 400);
   }
 
   if (invited?.user) {
@@ -93,9 +115,9 @@ Deno.serve(async (req) => {
       .update({ role })
       .eq("id", invited.user.id);
     if (profileError) {
-      return json({ ok: true, email, role, warning: profileError.message });
+      return json(req, { ok: true, email, role, warning: profileError.message });
     }
   }
 
-  return json({ ok: true, email, role });
+  return json(req, { ok: true, email, role });
 });

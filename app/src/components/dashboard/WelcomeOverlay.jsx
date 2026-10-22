@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { CircleCheckBig, Info, TriangleAlert, X, Zap } from "lucide-react";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+
+const DISMISSED_KEY = "dismissed_announcements";
 
 const ANNOUNCEMENT_STYLES = {
   info: {
@@ -36,7 +38,6 @@ const ANNOUNCEMENT_STYLES = {
   },
 };
 
-const DISMISSED_KEY = "dismissed_announcements";
 const normalizeToken = (value) =>
   String(value || "")
     .toLowerCase()
@@ -100,7 +101,7 @@ export default function WelcomeOverlay() {
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
-  }, [pathname, dismissedKey]);
+  }, [pathname, user?.id]);
 
   const dismiss = (id) => {
     saveDismissed(dismissedKey, id);
@@ -108,7 +109,7 @@ export default function WelcomeOverlay() {
   };
 
   return (
-    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[9980] flex flex-col gap-3 w-full max-w-xl px-4 pointer-events-none">
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-3 w-full max-w-xl px-4 pointer-events-none">
       <AnimatePresence>
         {announcements.map((announcement) => {
           const style =
@@ -157,6 +158,7 @@ export default function WelcomeOverlay() {
               </div>
               <button
                 onClick={() => dismiss(announcement.id)}
+                aria-label="إغلاق الإعلان"
                 className="flex-shrink-0 p-1 text-muted-foreground hover:text-foreground transition-colors rounded"
               >
                 <X size={15} />

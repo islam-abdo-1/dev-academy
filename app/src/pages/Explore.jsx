@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { MAJORS } from '@/lib/majors'
@@ -9,7 +9,6 @@ import PublicFooter from '@/components/layout/PublicFooter'
 import usePublicSearch from '@/components/browse/usePublicSearch'
 
 export default function Explore() {
-  const navigate = useNavigate()
   const search = usePublicSearch()
 
   return (
@@ -51,8 +50,7 @@ export default function Explore() {
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 + index * 0.15 }}
-                onClick={() => navigate(`/${major.id}`)}
-                className="group cursor-pointer rounded-2xl p-6 relative overflow-hidden"
+                className="group rounded-2xl relative overflow-hidden"
                 style={{
                   background: 'hsl(240, 30%, 7%)',
                   border: `1px solid ${major.border}`,
@@ -67,47 +65,52 @@ export default function Explore() {
                   event.currentTarget.style.boxShadow = 'none'
                 }}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-xs font-mono mb-1" style={{ color: major.color }}>
-                      {major.label}
-                    </p>
-                    <h2 className="text-2xl font-bold text-foreground">{major.title}</h2>
-                    <p className="text-muted-foreground text-sm mt-1">{major.subtitle}</p>
-                  </div>
-                  <div className="p-3 rounded-xl" style={{ background: major.colorMuted }}>
-                    <Icon size={28} style={{ color: major.color }} />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {major.years.map((year) => (
-                    <span
-                      key={year}
-                      className="text-xs px-3 py-1 rounded-full font-mono"
-                      style={{
-                        background: major.colorMuted,
-                        color: major.color,
-                        border: `1px solid ${major.border}`,
-                      }}
-                    >
-                      {year}
-                    </span>
-                  ))}
-                </div>
-                <div
-                  className="flex items-center gap-1 text-sm font-medium"
-                  style={{ color: major.color }}
+                <Link
+                  to={`/${major.id}`}
+                  className="block rounded-2xl p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <span>Explore major</span>
-                  <ChevronRight
-                    size={16}
-                    className="group-hover:translate-x-1 transition-transform"
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-xs font-mono mb-1" style={{ color: major.color }}>
+                        {major.label}
+                      </p>
+                      <h2 className="text-2xl font-bold text-foreground">{major.title}</h2>
+                      <p className="text-muted-foreground text-sm mt-1">{major.subtitle}</p>
+                    </div>
+                    <div className="p-3 rounded-xl" style={{ background: major.colorMuted }}>
+                      <Icon size={28} style={{ color: major.color }} />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {major.years.map((year) => (
+                      <span
+                        key={year}
+                        className="text-xs px-3 py-1 rounded-full font-mono"
+                        style={{
+                          background: major.colorMuted,
+                          color: major.color,
+                          border: `1px solid ${major.border}`,
+                        }}
+                      >
+                        {year}
+                      </span>
+                    ))}
+                  </div>
+                  <div
+                    className="flex items-center gap-1 text-sm font-medium"
+                    style={{ color: major.color }}
+                  >
+                    <span>Explore major</span>
+                    <ChevronRight
+                      size={16}
+                      className="group-hover:translate-x-1 transition-transform"
+                    />
+                  </div>
+                  <div
+                    className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full opacity-5 group-hover:opacity-10 transition-opacity"
+                    style={{ background: major.color, filter: 'blur(20px)' }}
                   />
-                </div>
-                <div
-                  className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full opacity-5 group-hover:opacity-10 transition-opacity"
-                  style={{ background: major.color, filter: 'blur(20px)' }}
-                />
+                </Link>
               </motion.div>
             )
           })}

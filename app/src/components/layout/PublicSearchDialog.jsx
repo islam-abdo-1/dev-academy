@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, ChevronRight, FileText, Search, X } from "lucide-react";
+import { BookOpen, ChevronRight, Search, X } from "lucide-react";
 import { db } from "@/lib/api";
 import { searchResources, searchSubjects } from "@/lib/subjectSearch";
-import { downloadHref, isHtmlItem } from "@/components/browse/ItemRow";
+import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
+import { materialFromResource } from "@/components/material/types";
+import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
 
 const MAJOR_LABELS = { ai: "AI", cybersecurity: "Cybersecurity" };
 const YEAR_LABELS = {
@@ -22,6 +24,7 @@ export default function PublicSearchDialog({ open, onClose }) {
   const inputRef = useRef(null);
   const dialogRef = useRef(null);
   const navigate = useNavigate();
+  const { openMaterial } = useMaterialViewer();
 
   const loadData = async () => {
     setLoading(true);
@@ -199,20 +202,22 @@ export default function PublicSearchDialog({ open, onClose }) {
                 الموارد
               </p>
               {filteredResources.map((resource) => (
-                <a
+                <button
                   key={resource.id}
-                  href={
-                    isHtmlItem({ file_type: resource.type, url: resource.url })
-                      ? downloadHref(resource)
-                      : resource.url
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={onClose}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary/10 transition-colors"
+                  type="button"
+                  onClick={() => {
+                    if (resource.url) openMaterial(materialFromResource(resource));
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
                 >
                   <div className="p-1.5 rounded bg-secondary/10 flex-shrink-0">
-                    <FileText size={14} className="text-secondary" />
+                    <MaterialTypeIcon
+                      type={resource.type}
+                      url={resource.url}
+                      size={14}
+                      className="text-secondary"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-foreground text-sm font-medium truncate">
@@ -226,7 +231,7 @@ export default function PublicSearchDialog({ open, onClose }) {
                     size={14}
                     className="text-muted-foreground flex-shrink-0"
                   />
-                </a>
+                </button>
               ))}
             </div>
           )}

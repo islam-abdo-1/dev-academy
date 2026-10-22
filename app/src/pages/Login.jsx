@@ -215,7 +215,7 @@ export default function Login() {
           <div className="w-full max-w-md">
             <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
               <img
-                src="/logo-mark.png"
+                src="/logo-mark.webp"
                 alt="Dev Academy"
                 className="h-16 w-16 rounded-2xl object-cover border border-primary/30"
               />

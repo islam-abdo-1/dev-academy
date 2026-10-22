@@ -93,10 +93,6 @@ export default function ChapterAccordion({ chapter, info }) {
                 </div>
               ) : kind === "files" ? (
                 <ChapterFiles chapterId={chapter.id} info={info} />
-              ) : isEmpty ? (
-                <p className="text-xs text-muted-foreground italic pt-2">
-                  No content yet.
-                </p>
               ) : (
                 <div className="pt-2 space-y-1">
                   {sortedLectures.map((lecture) => (
@@ -118,6 +114,13 @@ export default function ChapterAccordion({ chapter, info }) {
                       index={index}
                     />
                   ))}
+                  <ChapterFiles
+                    chapterId={chapter.id}
+                    info={info}
+                    hideWhenEmpty={!isEmpty}
+                    showHeading={!isEmpty}
+                    emptyLabel="No content yet."
+                  />
                 </div>
               )}
             </div>

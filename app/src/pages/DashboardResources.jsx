@@ -48,12 +48,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FileUpload from "@/components/FileUpload";
-import HtmlViewer from "@/components/browse/HtmlViewer";
-import {
-  downloadHref,
-  isHtmlItem,
-  isStorageFile,
-} from "@/components/browse/ItemRow";
+import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
+import { materialFromResource } from "@/components/material/types";
+import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
+import { downloadHref, isStorageFile } from "@/lib/materialPreview";
 
 const TYPE_META = {
   pdf: { label: "PDF", icon: FileText, color: "text-red-400" },
@@ -105,8 +103,8 @@ export default function DashboardResources() {
   const [resources, setResources] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewerResource, setViewerResource] = useState(null);
   const { run, busy } = useAsyncGuard();
+  const { openMaterial } = useMaterialViewer();
 
   const email = profile?.email || user?.email || "";
   const canManageAll = isSuperAdmin;
@@ -290,7 +288,11 @@ export default function DashboardResources() {
             <Card key={resource.id} className="neon-card bg-card group">
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <ResourceIcon type={resource.type} />
+                  <MaterialTypeIcon
+                    type={resource.type}
+                    url={resource.url}
+                    size={20}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-foreground font-medium truncate">
@@ -316,34 +318,20 @@ export default function DashboardResources() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {resource.url &&
-                    (isHtmlItem({
-                      file_type: resource.type,
-                      url: resource.url,
-                    }) ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setViewerResource(resource);
-                        }}
-                        title="فتح تفاعلي"
-                        aria-label={`فتح ${resource.title}`}
-                        className="p-2 text-muted-foreground hover:text-primary min-w-[44px] min-h-[44px] flex items-center justify-center"
-                      >
-                        <LayoutTemplate size={14} />
-                      </button>
-                    ) : (
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 text-muted-foreground hover:text-primary min-w-[44px] min-h-[44px] flex items-center justify-center"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <ExternalLink size={14} />
-                      </a>
-                    ))}
+                  {resource.url && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openMaterial(materialFromResource(resource));
+                      }}
+                      title="معاينة"
+                      aria-label={`معاينة ${resource.title}`}
+                      className="p-2 text-muted-foreground hover:text-primary min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    >
+                      <ExternalLink size={14} />
+                    </button>
+                  )}
                   {resource.url && isStorageFile(resource) && (
                     <a
                       href={downloadHref(resource)}
@@ -480,12 +468,6 @@ export default function DashboardResources() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <HtmlViewer
-        open={!!viewerResource}
-        url={viewerResource?.url}
-        title={viewerResource?.title}
-        onClose={() => setViewerResource(null)}
-      />
     </div>
   );
 }

@@ -13,8 +13,9 @@ const MONTHS = [
   'Dec',
 ]
 
-export function formatDate(value, pattern) {
+export function formatDate(value, pattern = 'd MMM yyyy') {
   const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
   const pad = (input) => String(input).padStart(2, '0')
   const tokens = {
     MMM: MONTHS[date.getMonth()],

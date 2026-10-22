@@ -4,8 +4,6 @@ import { Lock } from "lucide-react";
 import { db } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import HtmlViewer from "./HtmlViewer";
-import MediaViewer from "./MediaViewer";
 import ItemRow from "./ItemRow";
 
 const SECTION_COLOR = "hsl(280,60%,65%)";
@@ -15,8 +13,6 @@ export default function SectionItems({ sectionId }) {
   const location = useLocation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewerItem, setViewerItem] = useState(null);
-  const [mediaItem, setMediaItem] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -74,25 +70,8 @@ export default function SectionItems({ sectionId }) {
       {[...items]
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            color={SECTION_COLOR}
-            onOpenHtml={setViewerItem}
-            onOpenMedia={setMediaItem}
-          />
+          <ItemRow key={item.id} item={item} color={SECTION_COLOR} kind="section" />
         ))}
-      <HtmlViewer
-        open={!!viewerItem}
-        url={viewerItem?.url}
-        title={viewerItem?.title}
-        onClose={() => setViewerItem(null)}
-      />
-      <MediaViewer
-        open={!!mediaItem}
-        item={mediaItem}
-        onClose={() => setMediaItem(null)}
-      />
     </div>
   );
 }

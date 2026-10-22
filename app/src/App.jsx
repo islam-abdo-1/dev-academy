@@ -1,24 +1,41 @@
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import {
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { LoaderCircle } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import ConnectionError from "./components/ConnectionError";
 import WelcomeOverlay from "./components/dashboard/WelcomeOverlay";
+import SeoManager from "./components/SeoManager";
 import Home from "./pages/Home";
-import Explore from "./pages/Explore";
-import BrowseMajor from "./pages/BrowseMajor";
-import BrowseYear from "./pages/BrowseYear";
-import BrowseSemester from "./pages/BrowseSemester";
-import Profile from "./pages/Profile";
-import Login from "./pages/Login";
-import DashboardLayout from "./pages/DashboardLayout";
-import DashboardHome from "./pages/DashboardHome";
-import DashboardSubjects from "./pages/DashboardSubjects";
-import DashboardResources from "./pages/DashboardResources";
-import DashboardTeam from "./pages/DashboardTeam";
-import DashboardSettings from "./pages/DashboardSettings";
-import SubjectDetail from "./pages/SubjectDetail";
-import Legal from "./pages/Legal";
-import NotFound from "./pages/NotFound";
+
+const Explore = lazy(() => import("./pages/Explore"));
+const BrowseMajor = lazy(() => import("./pages/BrowseMajor"));
+const BrowseYear = lazy(() => import("./pages/BrowseYear"));
+const BrowseSemester = lazy(() => import("./pages/BrowseSemester"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Login = lazy(() => import("./pages/Login"));
+const DashboardLayout = lazy(() => import("./pages/DashboardLayout"));
+const DashboardHome = lazy(() => import("./pages/DashboardHome"));
+const DashboardSubjects = lazy(() => import("./pages/DashboardSubjects"));
+const DashboardResources = lazy(() => import("./pages/DashboardResources"));
+const DashboardTeam = lazy(() => import("./pages/DashboardTeam"));
+const DashboardSettings = lazy(() => import("./pages/DashboardSettings"));
+const SubjectDetail = lazy(() => import("./pages/SubjectDetail"));
+const DashboardPublishRequests = lazy(() => import("./pages/DashboardPublishRequests"));
+const DashboardStorage = lazy(() => import("./pages/DashboardStorage"));
+const Legal = lazy(() => import("./pages/Legal"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PublicShareView = lazy(() =>
+  import("./components/share/PublicShareView").then((module) => ({
+    default: module.PublicShareView,
+  })),
+);
 
 function FullPageLoader() {
   return (
@@ -65,13 +82,44 @@ function RequireStaff() {
   return <Outlet />;
 }
 
+function RequireSuperAdmin() {
+  const { isSuperAdmin, loading } = useAuth();
+  if (loading) return <FullPageLoader />;
+  if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
+
+function HomeEntryGuard() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (document.cookie.includes("dev_academy_launch=1")) return;
+    document.cookie = "dev_academy_launch=1; path=/; SameSite=Lax";
+    const isPrivateEntry =
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/") ||
+      pathname === "/profile" ||
+      pathname.startsWith("/profile/") ||
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/");
+    if (isPrivateEntry) navigate("/", { replace: true });
+  }, [navigate, pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <>
-      <Routes>
+      <SeoManager />
+      <HomeEntryGuard />
+      <Suspense fallback={<FullPageLoader />}>
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
+        <Route path="/s/:token" element={<PublicShareView />} />
         <Route path="/privacy" element={<Legal />} />
         <Route path="/terms" element={<Legal />} />
         <Route path="/:major" element={<BrowseMajor />} />
@@ -87,11 +135,22 @@ export default function App() {
             <Route path="resources" element={<DashboardResources />} />
             <Route path="team" element={<DashboardTeam />} />
             <Route path="settings" element={<DashboardSettings />} />
+            <Route path="publish-requests" element={<DashboardPublishRequests />} />
+            <Route element={<RequireSuperAdmin />}>
+              <Route path="storage" element={<DashboardStorage />} />
+            </Route>
             <Route path="subjects/:subjectId" element={<SubjectDetail />} />
           </Route>
+          <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="/admin/publish-requests"
+            element={<Navigate to="/dashboard/publish-requests" replace />}
+          />
+          <Route path="/admin/storage" element={<Navigate to="/dashboard/storage" replace />} />
         </Route>
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
+      </Suspense>
       <WelcomeOverlay />
     </>
   );
