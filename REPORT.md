@@ -305,7 +305,7 @@ Local Lighthouse results are not release evidence: runs varied materially with c
 
 - SMTP is unconfigured; verification and password-reset delivery are not ready for public use.
 - PITR is unavailable on the current plan; the encrypted daily off-site backup is the documented mitigation.
-- Final commit/tag was pending at the time of this section; it is created after the final diff review.
+- Final commit/tag `launch-readiness-2026-10-23` is created after the final diff review.
 
 **Decision:** Production remains **NO-GO for public launch** until SMTP is configured and verified. Turnstile, private storage, and automated/off-site backup are closed. Limited/internal launch can proceed with public registration disabled.
 
@@ -319,7 +319,7 @@ Local Lighthouse results are not release evidence: runs varied materially with c
 
 **Production asset:** `assets/index-jupyOKy1.js`, `assets/index-B_28QPb6.css`; HTML ETag `"5cd1a67ed073fec174357e94d3e8d87d"`
 
-**Source state:** HEAD `d97eccc` plus the launch-readiness changes; the final commit/tag is created after this report. Production was deployed with `--commit-dirty=true`.
+**Source state:** HEAD `d97eccc` plus the launch-readiness changes; the final source commit and tag `launch-readiness-2026-10-23` are created after this report. Production was deployed with `--commit-dirty=true`.
 
 ### Changes since the audit
 
