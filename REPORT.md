@@ -317,7 +317,7 @@ Local Lighthouse results are not release evidence: runs varied materially with c
 
 **Deployment:** Cloudflare Pages `503fcb76` on `https://dev-academy.pages.dev` (also `https://503fcb76.dev-academy.pages.dev`)
 
-**Production asset:** `assets/index-jupyOKy1.js`, `assets/index-B_28QPb6.css`; HTML ETag `"5cd1a67ed073fec174357e94d3e8d87d"`
+**Production asset:** `assets/index-jupyOKy1.js`, `assets/index-B_28QPb6.css`; HTML ETag `"4c5466a2b98128f1560e05c4f74077ff"`
 
 **Source state:** HEAD `d97eccc` plus the launch-readiness changes; the final source commit and tag `launch-readiness-2026-10-23` are created after this report. Production was deployed with `--commit-dirty=true`.
 
