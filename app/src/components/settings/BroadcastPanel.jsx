@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
   Mail,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { formatDate } from "@/lib/formatDate";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,8 @@ export default function BroadcastPanel({ user }) {
   const [sentMessages, setSentMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const broadcastRef = useRef({ fingerprint: "", id: "" });
 
   const buildPath = () => {
     if (pathSection === "all" && pathYear === "all") return "";
@@ -218,11 +221,13 @@ export default function BroadcastPanel({ user }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (sendingRef.current) return;
     if (!title.trim() || !body.trim()) return;
     if (audience === "specific" && !specificEmail) {
       toast.error("اختر المستخدم المطلوب");
       return;
     }
+    sendingRef.current = true;
     setSending(true);
     try {
       if (audience === "specific" && specificEmail) {
@@ -248,19 +253,45 @@ export default function BroadcastPanel({ user }) {
           toast.error("مفيش مستخدمين بالدور المختار — ظبط أدوار الفريق الأول");
           return;
         }
-        await Promise.all(
-          recipients.map((recipient) =>
-            db.create("messages", {
-              to_email: recipient.email,
-              from_email: user?.email || "",
-              from_name: user?.full_name || "Admin",
-              subject: title,
-              body,
-              read: false,
-              path,
-            }),
-          ),
+        const payloadFingerprint = JSON.stringify({
+          title,
+          body,
+          path,
+          recipients: recipients.map((recipient) => recipient.email).sort(),
+        });
+        if (broadcastRef.current.fingerprint !== payloadFingerprint) {
+          broadcastRef.current = {
+            fingerprint: payloadFingerprint,
+            id: crypto.randomUUID(),
+          };
+        }
+        const { data: broadcastResult, error: broadcastError } = await supabase.rpc(
+          "send_broadcast_messages",
+          {
+            p_broadcast_id: broadcastRef.current.id,
+            p_from_email: user?.email || "",
+            p_from_name: user?.full_name || "Admin",
+            p_subject: title,
+            p_body: body,
+            p_path: path || null,
+            p_recipients: recipients.map((recipient) => recipient.email),
+          },
         );
+        if (broadcastError) throw broadcastError;
+        const result = Array.isArray(broadcastResult)
+          ? broadcastResult[0]
+          : broadcastResult;
+        const sent = Number(result?.inserted) || 0;
+        const duplicates = Number(result?.duplicates) || 0;
+        const failed =
+          Number(result?.requested ?? recipients.length) - sent - duplicates;
+        if (failed > 0) {
+          toast.error(
+            `تم إرسال ${sent} من ${recipients.length} رسالة. فشل إرسال ${failed} رسالة، أعد المحاولة للمتبقي فقط.`,
+          );
+          return;
+        }
+        broadcastRef.current = { fingerprint: "", id: "" };
         resetForm();
         toast.success(`تم إرسال الرسالة إلى ${recipients.length} مستخدم ✅`);
         return;
@@ -275,8 +306,11 @@ export default function BroadcastPanel({ user }) {
       });
       await loadAnnouncements();
       resetForm();
-      toast.success("تم إرسال الإعلان لجميع المستخدمين ✅");
+      toast.success("تم إرسال الإعلان لجميع المستخدمين ✓.");
+    } catch (error) {
+      toast.error(error?.message || "تعذر إرسال الرسائل. حاول مرة أخرى.");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };

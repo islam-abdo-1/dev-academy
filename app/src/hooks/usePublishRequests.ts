@@ -89,12 +89,16 @@ export function usePublishRequests(): UsePublishRequestsReturn {
 
   const cancelRequest = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('publish_requests')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      if (!data?.length) {
+        throw new Error('لا يمكن إلغاء الطلب في حالته الحالية');
+      }
 
       setRequests(prev => prev.filter(r => r.id !== id));
       return true;

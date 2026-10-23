@@ -16,9 +16,15 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
+          react: [
+            'react',
+            'react/jsx-runtime',
+            'react/jsx-dev-runtime',
+            'react-dom',
+            'react-dom/client',
+            'react-router-dom',
+          ],
           supabase: ['@supabase/supabase-js'],
-          motion: ['framer-motion'],
           ui: [
             'lucide-react',
             'sonner',

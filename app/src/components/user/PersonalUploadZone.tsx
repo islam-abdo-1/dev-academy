@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useEffect } from 'react';
+﻿import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Upload,
@@ -28,8 +28,10 @@ interface PersonalUploadZoneProps {
 
 export function PersonalUploadZone({ className, onFileUploaded, refreshKey = 0 }: PersonalUploadZoneProps) {
   const { user } = useAuth();
-  const { uploadFile, uploading, uploadProgress } = usePersonalFiles();
+  const { uploadFile } = usePersonalFiles();
   const { usage, refresh: refreshUsage } = useStorageUsage();
+  const uploadLock = useRef(false);
+  const [uploadingNow, setUploadingNow] = useState(false);
 
   useEffect(() => {
     refreshUsage();
@@ -70,10 +72,15 @@ export function PersonalUploadZone({ className, onFileUploaded, refreshKey = 0 }
   });
 
   const uploadFiles = async () => {
-
+    if (uploadLock.current) return;
     const pendingFiles = uploadedFiles.filter(f => f.status === 'pending');
-    for (const upload of pendingFiles) {
-      try {
+    if (pendingFiles.length === 0) return;
+
+    uploadLock.current = true;
+    setUploadingNow(true);
+    try {
+      for (const upload of pendingFiles) {
+        try {
         setUploadedFiles(prev => prev.map(u => u.id === upload.id ? { ...u, status: 'uploading' } : u));
 
         const result = await uploadFile(upload.file, {
@@ -94,11 +101,15 @@ export function PersonalUploadZone({ className, onFileUploaded, refreshKey = 0 }
         } else {
           throw new Error('Upload failed');
         }
-      } catch (error) {
-        setUploadedFiles(prev => prev.map(u =>
-          u.id === upload.id ? { ...u, status: 'error', error: error instanceof Error ? error.message : 'Upload failed' } : u
-        ));
+        } catch (error) {
+          setUploadedFiles(prev => prev.map(u =>
+            u.id === upload.id ? { ...u, status: 'error', error: error instanceof Error ? error.message : 'Upload failed' } : u
+          ));
+        }
       }
+    } finally {
+      uploadLock.current = false;
+      setUploadingNow(false);
     }
   };
 
@@ -244,13 +255,14 @@ export function PersonalUploadZone({ className, onFileUploaded, refreshKey = 0 }
       )}
 
       {/* Upload Button */}
-      {uploadedFiles.some(f => f.status === 'pending') && (
+      {(uploadingNow || uploadedFiles.some(f => f.status === 'pending')) && (
         <Button
           onClick={uploadFiles}
           className="w-full"
           size="lg"
+          disabled={uploadingNow}
         >
-          Upload All Files
+          {uploadingNow ? 'Uploading...' : 'Upload All Files'}
         </Button>
       )}
 

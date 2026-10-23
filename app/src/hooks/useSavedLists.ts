@@ -43,6 +43,7 @@ export function useSavedLists(): UseSavedListsReturn {
             official_material_id,
             personal_file_id,
             external_url,
+            title,
             kind,
             sort_order,
             user_notes,

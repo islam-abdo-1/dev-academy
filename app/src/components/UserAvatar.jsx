@@ -15,7 +15,7 @@ export default function UserAvatar({ src, alt = "Avatar", className = "", style 
       alt={alt}
       className={className}
       style={style}
-      loading="lazy"
+      decoding="async"
       onError={() => {
         setCurrent((value) => (value === DEFAULT_AVATAR_URL ? value : DEFAULT_AVATAR_URL));
       }}

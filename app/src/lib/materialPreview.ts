@@ -1,3 +1,5 @@
+import { isWorkerFileUrl } from "@/lib/workerUrl";
+
 export type PreviewKind =
   | "pdf"
   | "office"
@@ -137,7 +139,8 @@ export function isStorageFile(item: PreviewItem): boolean {
   const url = item.url || "";
   return (
     url.includes("/storage/v1/object/public/media/") ||
-    HF_FILE_PATTERN.test(url)
+    HF_FILE_PATTERN.test(url) ||
+    isWorkerFileUrl(url)
   );
 }
 
@@ -147,6 +150,9 @@ export function downloadHref(item: PreviewItem): string {
   const separator = url.includes("?") ? "&" : "?";
   if (HF_FILE_PATTERN.test(url)) {
     return `${url}${separator}download=true`;
+  }
+  if (isWorkerFileUrl(url)) {
+    return `${url}${separator}download=1`;
   }
   const stored = decodeURIComponent(
     url.split("?")[0].split("/").pop() || "file",

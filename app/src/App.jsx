@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Navigate,
   Outlet,
@@ -10,9 +10,12 @@ import {
 import { LoaderCircle } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import ConnectionError from "./components/ConnectionError";
-import WelcomeOverlay from "./components/dashboard/WelcomeOverlay";
 import SeoManager from "./components/SeoManager";
 import Home from "./pages/Home";
+
+const WelcomeOverlay = lazy(() =>
+  import("./components/dashboard/WelcomeOverlay"),
+);
 
 const Explore = lazy(() => import("./pages/Explore"));
 const BrowseMajor = lazy(() => import("./pages/BrowseMajor"));
@@ -20,6 +23,7 @@ const BrowseYear = lazy(() => import("./pages/BrowseYear"));
 const BrowseSemester = lazy(() => import("./pages/BrowseSemester"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const DashboardLayout = lazy(() => import("./pages/DashboardLayout"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const DashboardSubjects = lazy(() => import("./pages/DashboardSubjects"));
@@ -110,6 +114,13 @@ function HomeEntryGuard() {
 }
 
 export default function App() {
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowOverlay(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <>
       <SeoManager />
@@ -117,6 +128,7 @@ export default function App() {
       <Suspense fallback={<FullPageLoader />}>
         <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/s/:token" element={<PublicShareView />} />
@@ -151,7 +163,11 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
-      <WelcomeOverlay />
+      {showOverlay && (
+        <Suspense fallback={null}>
+          <WelcomeOverlay />
+        </Suspense>
+      )}
     </>
   );
 }

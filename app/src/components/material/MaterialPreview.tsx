@@ -167,6 +167,7 @@ function PdfPreview({ material }: { material: Material }) {
     <iframe
       src={src}
       title={material.title}
+      referrerPolicy="no-referrer"
       className="h-full w-full border-0 bg-white"
     />
   );

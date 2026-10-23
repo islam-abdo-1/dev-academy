@@ -6,7 +6,18 @@ import {
   useMemo,
   useState,
 } from "react";
-import { supabase } from "./supabase";
+let supabasePromise;
+function loadSupabase() {
+  if (!supabasePromise) {
+    supabasePromise = import("./supabase")
+      .then((module) => module.supabase)
+      .catch((error) => {
+        supabasePromise = undefined;
+        throw error;
+      });
+  }
+  return supabasePromise;
+}
 
 /**
  * @typedef {Object} AuthContextValue
@@ -42,25 +53,27 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
+    let subscription;
+    loadSupabase()
+      .then(async (client) => {
+        if (!mounted) return;
+        const { data: sub } = client.auth.onAuthStateChange(
+          (_event, newSession) => {
+            if (mounted) setSession(newSession);
+          },
+        );
+        subscription = sub.subscription;
+        const { data } = await client.auth.getSession();
         if (!mounted) return;
         setSession(data.session);
         setLoading(false);
       })
       .catch(() => {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) setLoading(false);
       });
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        setSession(newSession);
-      },
-    );
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
@@ -73,14 +86,15 @@ export function AuthProvider({ children }) {
     }
     setProfileError(null);
     try {
-      const { data, error } = await supabase
+      const client = await loadSupabase();
+      const { data, error } = await client
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
       if (error) throw error;
       if (!data) {
-        const { data: healed } = await supabase.rpc("ensure_my_profile");
+        const { data: healed } = await client.rpc("ensure_my_profile");
         const healedRow = Array.isArray(healed) ? healed[0] : healed;
         setProfile(healedRow ?? null);
         return healedRow ?? null;
@@ -109,7 +123,7 @@ export function AuthProvider({ children }) {
       profileError,
       isStaff: role === "admin" || role === "super_admin",
       isSuperAdmin: role === "super_admin",
-      signOut: () => supabase.auth.signOut(),
+      signOut: () => loadSupabase().then((client) => client.auth.signOut()),
       refreshProfile,
     };
   }, [session, profile, loading, profileError, refreshProfile]);

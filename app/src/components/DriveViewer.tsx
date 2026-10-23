@@ -279,7 +279,6 @@ export default function DriveViewer({
                 style={{ background: "#fff", colorScheme: "light" }}
                 allow="autoplay; fullscreen"
                 allowFullScreen
-                loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 onLoad={() => setLoaded(true)}
               />

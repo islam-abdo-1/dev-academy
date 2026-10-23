@@ -52,8 +52,9 @@ function corsHeaders(env: Env, request: Request): Record<string, string> {
   }
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-File-Name",
+    "Access-Control-Allow-Methods": "GET, HEAD, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, X-File-Name, Range",
+    "Access-Control-Expose-Headers": "Content-Length, Content-Range, Content-Type, Accept-Ranges",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -201,6 +202,27 @@ async function rpcAsService(
   return JSON.parse(text);
 }
 
+async function restAsService<T>(
+  env: Env,
+  path: string,
+): Promise<T | null> {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new HttpError(500, "SUPABASE_SERVICE_ROLE_KEY is not configured");
+  }
+  const response = await fetch(`${supabaseBase(env)}/rest/v1/${path}`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+  });
+  if (!response.ok) {
+    throw new HttpError(502, "storage metadata lookup failed");
+  }
+  const text = await response.text();
+  if (!text) return null;
+  return JSON.parse(text) as T;
+}
+
 async function reserveUpload(
   env: Env,
   user: AuthUser,
@@ -301,8 +323,8 @@ function hfObjectUrl(env: Env, key: string): string {
   return `https://s3.hf.co/${encodeURIComponent(env.HF_NAMESPACE)}/${encodeURIComponent(env.HF_BUCKET)}/${encodeKey(key)}`;
 }
 
-function hfPublicUrl(env: Env, key: string): string {
-  return `https://huggingface.co/buckets/${encodeURIComponent(env.HF_NAMESPACE)}/${encodeURIComponent(env.HF_BUCKET)}/resolve/${encodeKey(key)}`;
+function workerFileUrl(request: Request, key: string): string {
+  return new URL(`/file/${encodeKey(key)}`, request.url).toString();
 }
 
 function hfClient(env: Env): AwsClient {
@@ -431,7 +453,7 @@ async function handleUpload(
 
   return json(
     {
-      url: hfPublicUrl(env, path),
+      url: workerFileUrl(request, path),
       path,
       provider: "huggingface",
       size: counter.bytes,
@@ -470,6 +492,156 @@ async function handleDelete(
   return json({ path, releasedBytes }, 200, env, request);
 }
 
+interface PersonalFileRow {
+  id: string;
+  user_id: string;
+  is_public: boolean;
+  title: string | null;
+}
+
+interface ShareTokenRow {
+  resource_type: string;
+  resource_id: string;
+  permission: string;
+  expires_at: string | null;
+}
+
+function filePathFromUrl(url: URL): string | null {
+  const prefix = "/file/";
+  if (!url.pathname.startsWith(prefix)) return null;
+  const encoded = url.pathname.slice(prefix.length);
+  if (!encoded) return null;
+  try {
+    return encoded.split("/").map(decodeURIComponent).join("/");
+  } catch {
+    return null;
+  }
+}
+
+async function canReadPersonalFile(
+  env: Env,
+  request: Request,
+  url: URL,
+  file: PersonalFileRow,
+): Promise<void> {
+  if (file.is_public) return;
+
+  const share = (url.searchParams.get("share") || "").trim();
+  if (share.length >= 16 && share.length <= 128) {
+    const rows = await restAsService<ShareTokenRow[]>(
+      env,
+      `share_tokens?token=eq.${encodeURIComponent(share)}&select=resource_type,resource_id,permission,expires_at&limit=1`,
+    );
+    const token = rows?.[0];
+    const active = Boolean(
+      token &&
+        (!token.expires_at || new Date(token.expires_at).getTime() > Date.now()),
+    );
+
+    if (active && token && token.resource_type === "file" && token.resource_id === file.id) {
+      return;
+    }
+
+    if (active && token && token.resource_type === "list") {
+      const items = await restAsService<{ id: string }[]>(
+        env,
+        `user_saved_items?list_id=eq.${encodeURIComponent(token.resource_id)}&personal_file_id=eq.${encodeURIComponent(file.id)}&select=id&limit=1`,
+      );
+      if (items?.[0]) return;
+    }
+  }
+
+  const hasBearer = (request.headers.get("Authorization") || "")
+    .toLowerCase()
+    .startsWith("bearer ");
+  if (!hasBearer) throw new HttpError(404, "file not found");
+
+  const user = await verifyUser(env, request);
+  if (user.id !== file.user_id) {
+    throw new HttpError(404, "file not found");
+  }
+}
+
+async function handleFile(
+  env: Env,
+  request: Request,
+): Promise<Response> {
+  const url = new URL(request.url);
+  const path = filePathFromUrl(url);
+  if (!path) throw new HttpError(404, "not found");
+
+  const ownerId = path.split("/")[0];
+  if (!/^[0-9a-f-]{36}$/i.test(ownerId) || !isOwnedObjectPath(ownerId, path)) {
+    throw new HttpError(404, "not found");
+  }
+
+  const rows = await restAsService<PersonalFileRow[]>(
+    env,
+    `user_personal_files?storage_path=eq.${encodeURIComponent(path)}&select=id,user_id,is_public,title&limit=1`,
+  );
+  const personal = rows?.[0] ?? null;
+  if (personal) {
+    await canReadPersonalFile(env, request, url, personal);
+  }
+
+  const range = request.headers.get("Range");
+  const signed = await hfClient(env).sign(hfObjectUrl(env, path), {
+    method: request.method === "HEAD" ? "HEAD" : "GET",
+    headers: range ? { Range: range } : {},
+  });
+  const response = await fetch(signed);
+  if (response.status === 404 || response.status === 403) {
+    await response.body?.cancel();
+    throw new HttpError(404, "file not found");
+  }
+  if (!response.ok && response.status !== 206) {
+    await response.body?.cancel();
+    throw new HttpError(502, "failed to read stored file");
+  }
+
+  const headers = new Headers();
+  for (const name of [
+    "content-type",
+    "content-length",
+    "content-range",
+    "accept-ranges",
+    "etag",
+    "last-modified",
+  ]) {
+    const value = response.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  const download = url.searchParams.has("download");
+  const sourceName = (
+    personal?.title ||
+    path.split("/").pop() ||
+    "file"
+  )
+    .replace(/[\r\n"]/g, "")
+    .trim() || "file";
+  const asciiName = sourceName.replace(/[^\x20-\x7E]/g, "_") || "file";
+  const encodedName = encodeURIComponent(sourceName);
+  headers.set(
+    "Content-Disposition",
+    `${download ? "attachment" : "inline"}; filename="${asciiName}"; filename*=UTF-8''${encodedName}`,
+  );
+  headers.set(
+    "Cache-Control",
+    personal && !personal.is_public
+      ? "private, max-age=0, must-revalidate"
+      : "public, max-age=3600",
+  );
+  headers.set("X-Content-Type-Options", "nosniff");
+  for (const [name, value] of Object.entries(corsHeaders(env, request))) {
+    headers.set(name, value);
+  }
+
+  return new Response(request.method === "HEAD" ? null : response.body, {
+    status: response.status,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
@@ -491,6 +663,12 @@ export default {
       }
       if (url.pathname === "/delete" && request.method === "DELETE") {
         return await handleDelete(env, request);
+      }
+      if (
+        url.pathname.startsWith("/file/") &&
+        (request.method === "GET" || request.method === "HEAD")
+      ) {
+        return await handleFile(env, request);
       }
 
       return json({ error: "not found" }, 404, env, request);

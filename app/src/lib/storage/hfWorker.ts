@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { isWorkerFileUrl, proxiedFileUrl } from "@/lib/workerUrl";
 
 export const MAX_HF_FILE_BYTES = 90 * 1024 * 1024;
 
@@ -45,8 +46,25 @@ async function authHeaders(): Promise<Record<string, string>> {
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   const token = data.session?.access_token;
-  if (!token) throw new Error("انتهت الجلسة. سجل الدخول من جديد ثم أعد المحاولة.");
+  if (!token) throw new Error("الجلسة منتهية. يرجى تسجيل الدخول مرة أخرى.");
   return { Authorization: `Bearer ${token}` };
+}
+
+export async function authorizedFileBlobUrl(
+  url: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!isWorkerFileUrl(url)) {
+    throw new Error("رابط ملف غير صالح.");
+  }
+  const headers = await authHeaders();
+  const response = await fetch(url, { headers, signal });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(parseWorkerError(response.status, body));
+  }
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 }
 
 function parseWorkerError(status: number, body: string): string {
@@ -95,7 +113,8 @@ export async function uploadStudyFile(
             reject(new Error("استجابة رفع غير صالحة."));
             return;
           }
-          resolve(result);
+          const proxyUrl = proxiedFileUrl(result.path);
+          resolve(proxyUrl ? { ...result, url: proxyUrl } : result);
         } catch {
           reject(new Error("استجابة رفع غير صالحة."));
         }

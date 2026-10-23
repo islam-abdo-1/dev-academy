@@ -30,7 +30,7 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 - **Publishing workflow** — students submit personal files for review; staff approve and publish into the official catalog.
 - **Staff dashboard** — subjects, resources, team roles, publish requests, and storage administration.
 - **Arabic RTL UI** — responsive layout, dark theme, accessible keyboard navigation.
-- **Storage split** — Supabase for auth/DB/avatars; Hugging Face Public Bucket (through a Cloudflare Worker) for study files, with per-user quotas and reservation-based accounting.
+- **Storage split** — Supabase for auth/DB/legacy media/avatars; Hugging Face private bucket (through a Cloudflare Worker and same-origin Pages Function) for personal study files, with per-user quotas and reservation-based accounting.
 - **Privacy-friendly analytics** — Cloudflare Web Analytics for visitors plus an in-app admin summary for registered users and daily activity.
 
 ## Tech Stack
@@ -39,7 +39,7 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 | --- | --- |
 | Frontend | React 18, Vite 7, React Router 7, Tailwind CSS 3, Radix UI, Framer Motion, Recharts |
 | Auth / Database | Supabase Auth + Postgres with Row Level Security |
-| File storage | Supabase Storage (avatars/legacy), Hugging Face Public Bucket via Cloudflare Worker |
+| File storage | Supabase Storage (legacy media/avatars), Hugging Face private bucket via Cloudflare Worker + Pages Function |
 | Edge API | Cloudflare Workers (`workers/hf-upload`) with `aws4fetch` |
 | Email | Supabase Edge Function (`db/functions/invite-user`) |
 | Hosting | Cloudflare Pages |
@@ -85,7 +85,7 @@ Copy examples only; never commit real values.
 - `app/.env.example`
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
-  - `VITE_TURNSTILE_SITE_KEY` (optional)
+  - `VITE_TURNSTILE_SITE_KEY` (required when Supabase Auth captcha is enabled)
   - `VITE_HF_UPLOAD_WORKER_URL`
 - `workers/hf-upload/.dev.vars.example`
   - `HF_ACCESS_KEY_ID`
@@ -98,6 +98,8 @@ Copy examples only; never commit real values.
   - `ALLOWED_ORIGINS`
 - root `.env.example` (local scripts only)
   - Supabase management/seed variables, Hugging Face export variables, Cloudflare deploy variables.
+  - `TURNSTILE_SECRET_KEY` for Supabase Auth captcha configuration.
+  - `BACKUP_ARCHIVE_PASSWORD`, `ONEDRIVE_BACKUP_DIR`, `PG_DUMP_BIN`, `SEVEN_ZIP_BIN` for encrypted backups.
 
 `VITE_*` values are public in the browser bundle. Never put a service-role key, Hugging Face secret, or provider API secret in a `VITE_*` variable.
 
@@ -154,11 +156,27 @@ Security headers live in `app/public/_headers`. SPA fallbacks are limited to `/s
 
 See [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
+## Operations
+
+### Encrypted off-site backup
+
+`scripts/backup-offsite.mjs` dumps the `public`, `auth`, and `storage` schemas, downloads all legacy Supabase `media` objects, records the public Hugging Face dataset inventory, creates an encrypted 7z archive (`-mhe=on`), writes a SHA256 file, copies the archive to OneDrive, and prunes backups older than 14 days.
+
+```powershell
+# from the repository root, after filling root .env
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-backup-offsite.ps1
+```
+
+The Windows task `DevAcademy Offsite Backup` runs the wrapper daily at 12:00 and requires an active user session. It sets `BACKUP_INCLUDE_HF=0`; the 144-file public HF dataset is inventoried but not re-downloaded. Set `BACKUP_INCLUDE_HF=1` for a manual full-media copy. PITR is not available on the current plan; keep the daily archive and verify restores periodically.
+
+### Turnstile
+
+Supabase Auth captcha is enforced with the Turnstile widget `Dev Academy Auth`. The site key is public and belongs in `app/.env`; the secret belongs only in Supabase Auth settings and the root local `.env`.
+
 ## Roadmap
 
 - Full SSR or static generation for catalog pages.
 - Native password-protected share links.
-- Optional backup export to an independent object store.
 - Richer analytics dashboard and alerting.
 - Automated browser tests for upload/share/publish flows.
 

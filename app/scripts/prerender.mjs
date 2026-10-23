@@ -42,6 +42,13 @@ function removeCanonical(html) {
   return html.replace(/<link\s+rel="canonical"[^>]*>\s*/i, "");
 }
 
+function removeHomeBoot(html) {
+  return html.replace(
+    /\s*<!-- boot-home:start -->[\s\S]*?<!-- boot-home:end -->/i,
+    "",
+  );
+}
+
 function renderMeta(template, pathname, { includeCanonical = true } = {}) {
   const seo = seoFor(pathname);
   const url = `${SITE_URL}${pathname === "/" ? "/" : pathname}`;
@@ -57,6 +64,7 @@ function renderMeta(template, pathname, { includeCanonical = true } = {}) {
   html = setMeta(html, "name", "twitter:title", seo.title);
   html = setMeta(html, "name", "twitter:description", seo.description);
   html = includeCanonical ? setCanonical(html, url) : removeCanonical(html);
+  if (pathname !== "/") html = removeHomeBoot(html);
   return html;
 }
 

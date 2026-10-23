@@ -57,8 +57,15 @@ export function MaterialViewerDialog({
 
   if (!material) return null;
 
-  const safeUrl = safeHttpUrl(material.url);
-  const downloadUrl = isStorageFile(material) ? downloadHref(material) : safeUrl;
+  const blobUrl = material.url?.startsWith("blob:") ? material.url : "";
+  const safeUrl = safeHttpUrl(material.url) || blobUrl;
+  const declaredDownload = material.downloadUrl
+    ? safeHttpUrl(material.downloadUrl) ||
+      (material.downloadUrl.startsWith("blob:") ? material.downloadUrl : "")
+    : "";
+  const downloadUrl =
+    declaredDownload ||
+    (isStorageFile(material) ? downloadHref(material) : safeUrl);
   const showDownload = material.canDownload !== false && Boolean(downloadUrl);
   const sourceLabel =
     material.source === "shared"

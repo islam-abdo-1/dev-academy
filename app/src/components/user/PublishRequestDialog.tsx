@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle, FileText, LoaderCircle, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { usePersonalFiles } from '@/hooks/usePersonalFiles';
@@ -28,6 +28,7 @@ interface PublishRequestDialogProps {
   open: boolean;
   onClose: () => void;
   onSubmitted?: () => void;
+  initialItems?: PublishRequestItem[];
 }
 
 interface Option {
@@ -35,7 +36,12 @@ interface Option {
   name: string;
 }
 
-export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequestDialogProps) {
+export function PublishRequestDialog({
+  open,
+  onClose,
+  onSubmitted,
+  initialItems,
+}: PublishRequestDialogProps) {
   const { files, loading, refresh } = usePersonalFiles();
   const { createRequest } = usePublishRequests();
 
@@ -47,14 +53,22 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
   const [chapterId, setChapterId] = useState('');
   const [sectionId, setSectionId] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
 
   useEffect(() => {
     if (!open) return;
     refresh();
-    setSelectedIds(new Set());
-    setSubjectId('');
-    setChapterId('');
-    setSectionId('');
+    const first = initialItems?.[0];
+    setSelectedIds(
+      new Set(
+        (initialItems || [])
+          .filter((item) => item.type === 'personal' && item.id)
+          .map((item) => item.id),
+      ),
+    );
+    setSubjectId(first?.target_subject_id || '');
+    setChapterId(first?.target_chapter_id || '');
+    setSectionId(first?.target_section_id || '');
     setChapters([]);
     setSections([]);
     supabase
@@ -62,12 +76,9 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
       .select('id,name')
       .order('name')
       .then(({ data }) => setSubjects(data || []));
-  }, [open, refresh]);
+  }, [open, refresh, initialItems]);
 
   useEffect(() => {
-    setChapterId('');
-    setSectionId('');
-    setSections([]);
     if (!subjectId) {
       setChapters([]);
       return;
@@ -81,7 +92,6 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
   }, [subjectId]);
 
   useEffect(() => {
-    setSectionId('');
     if (!subjectId) {
       setSections([]);
       return;
@@ -112,6 +122,7 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
   };
 
   const handleSubmit = async () => {
+    if (submitLock.current) return;
     if (selectedFiles.length === 0) {
       toast.error('اختر ملفًا واحدًا على الأقل');
       return;
@@ -121,6 +132,7 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
       return;
     }
 
+    submitLock.current = true;
     setSubmitting(true);
     try {
       const items: PublishRequestItem[] = selectedFiles.map((file) => ({
@@ -142,6 +154,7 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'تعذر إرسال الطلب');
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   };
@@ -205,7 +218,14 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">المادة *</label>
-              <Select value={subjectId} onValueChange={setSubjectId}>
+              <Select
+                value={subjectId}
+                onValueChange={(value) => {
+                  setSubjectId(value);
+                  setChapterId('');
+                  setSectionId('');
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="اختر المادة" />
                 </SelectTrigger>
@@ -221,7 +241,13 @@ export function PublishRequestDialog({ open, onClose, onSubmitted }: PublishRequ
 
             <div className="space-y-2">
               <label className="text-sm font-medium">الفصل (اختياري)</label>
-              <Select value={chapterId || 'none'} onValueChange={(value) => setChapterId(value === 'none' ? '' : value)}>
+              <Select
+                value={chapterId || 'none'}
+                onValueChange={(value) => {
+                  setChapterId(value === 'none' ? '' : value);
+                  setSectionId('');
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="بدون فصل" />
                 </SelectTrigger>

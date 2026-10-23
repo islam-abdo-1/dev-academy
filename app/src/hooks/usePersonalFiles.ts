@@ -69,6 +69,7 @@ export function usePersonalFiles(): UsePersonalFilesReturn {
     setError(null);
 
     let uploadedPath: string | null = null;
+    let fileHash: string | null = null;
     try {
       const compressed = file.type.startsWith('image/')
         ? await compressStudyImage(file)
@@ -77,6 +78,14 @@ export function usePersonalFiles(): UsePersonalFilesReturn {
 
       if (uploadFile.size > MAX_HF_FILE_BYTES) {
         throw new Error('حجم الملف يتجاوز الحد الأقصى 90MB.');
+      }
+
+      fileHash = await computeFileHash(uploadFile);
+      const existing = await findFileByHash(user.id, fileHash);
+      if (existing) {
+        setFiles(prev => prev.some(item => item.id === existing.id) ? prev : [existing, ...prev]);
+        setUploadProgress(null);
+        return existing;
       }
 
       setUploadProgress({ loaded: 0, total: uploadFile.size, percentage: 0 });
@@ -105,7 +114,7 @@ export function usePersonalFiles(): UsePersonalFilesReturn {
           mime_type: uploadFile.type || classification.mimeType,
           storage_provider: result.provider,
           storage_path: result.path,
-          sha256_hash: await computeFileHash(uploadFile),
+          sha256_hash: fileHash,
         })
         .select()
         .single();
@@ -118,6 +127,14 @@ export function usePersonalFiles(): UsePersonalFilesReturn {
     } catch (err) {
       if (uploadedPath) {
         await deleteStudyFile(uploadedPath).catch(() => undefined);
+      }
+      if (uploadedPath && fileHash && (err as { code?: string })?.code === '23505') {
+        const existing = await findFileByHash(user.id, fileHash).catch(() => null);
+        if (existing) {
+          setFiles(prev => prev.some(item => item.id === existing.id) ? prev : [existing, ...prev]);
+          setUploadProgress(null);
+          return existing;
+        }
       }
       const message = err instanceof Error ? err.message : 'Upload failed';
       setError(message);
@@ -224,6 +241,17 @@ export function usePersonalFiles(): UsePersonalFilesReturn {
     createShareLink,
     refresh: fetchFiles,
   };
+}
+
+async function findFileByHash(userId: string, sha256Hash: string): Promise<PersonalFile | null> {
+  const { data, error } = await supabase
+    .from('user_personal_files')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('sha256_hash', sha256Hash)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PersonalFile | null) ?? null;
 }
 
 async function computeFileHash(file: File): Promise<string> {

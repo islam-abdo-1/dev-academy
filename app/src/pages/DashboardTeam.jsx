@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { db } from '@/lib/api'
@@ -26,6 +26,8 @@ export default function DashboardTeam() {
   const [messageUser, setMessageUser] = useState(null)
   const [messageBody, setMessageBody] = useState('')
   const [sending, setSending] = useState(false)
+  const inviteRef = useRef(false)
+  const messageRef = useRef(false)
 
   const loadMembers = useCallback(async () => {
     try {
@@ -46,12 +48,14 @@ export default function DashboardTeam() {
 
   const handleInvite = async (event) => {
     event.preventDefault()
+    if (inviteRef.current) return
     const target = email.trim().toLowerCase()
     if (!target) return
     if (members.some((member) => String(member.email || '').toLowerCase() === target)) {
       toast.error('البريد ده مسجل بالفعل — عدّل دوره من قائمة الأعضاء بدل ما تبعته دعوة جديدة')
       return
     }
+    inviteRef.current = true
     setInviting(true)
     try {
       const { error } = await supabase.functions.invoke('invite-user', {
@@ -81,6 +85,7 @@ export default function DashboardTeam() {
         toast.error(raw || 'Failed to invite user')
       }
     } finally {
+      inviteRef.current = false
       setInviting(false)
     }
   }
@@ -123,7 +128,9 @@ export default function DashboardTeam() {
   }
 
   const handleSendMessage = async () => {
+    if (messageRef.current) return
     if (!messageUser || !messageBody.trim()) return
+    messageRef.current = true
     setSending(true)
     try {
       await db.create('messages', {
@@ -136,6 +143,7 @@ export default function DashboardTeam() {
       })
     } catch (error) {
       toast.error(error?.message || 'Failed to save message')
+      messageRef.current = false
       setSending(false)
       return
     }
@@ -159,6 +167,7 @@ export default function DashboardTeam() {
     )
     setMessageUser(null)
     setMessageBody('')
+    messageRef.current = false
     setSending(false)
   }
 

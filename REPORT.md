@@ -1,10 +1,12 @@
 # Dev Academy — Launch Readiness Report
 
-**Date:** 2026-10-22  
-**Scope:** Security hardening, storage/quota correctness, accessibility, SEO, performance, local load, repository hygiene, and deployment readiness.  
-**Constraint:** No production or third-party writes were performed. All runtime checks below are local unless explicitly marked otherwise.
+**Date:** 2026-10-23
 
-> **Post-audit update (2026-10-22):** The production build has since been deployed and smoke-tested. The original audit constraint and NO-GO conclusions below describe the earlier snapshot; see **Final Verification Update** for the superseding production status.
+**Scope:** Security hardening, private storage, storage/quota correctness, accessibility, SEO, performance, repository hygiene, and deployment readiness.
+
+**Constraint:** Production writes were limited to QA uploads, the Hugging Face bucket privacy setting, Pages deployments, admin password rotation, and temporary restore-database creation; no destructive load/fuzz testing was performed. QA fixtures, users, objects, and temporary credentials were removed after verification, and the restore database was dropped.
+
+> **Final verification update (2026-10-23):** Production is now Cloudflare Pages deployment `503fcb76` on `https://dev-academy.pages.dev` with `assets/index-jupyOKy1.js` and `assets/index-B_28QPb6.css`. Private personal files use the authenticated same-origin Pages Function `/api/hf-file/*`, the Hugging Face bucket is private and empty, and PDF preview is verified in production. Turnstile is configured and enforced by Supabase Auth, the encrypted off-site backup is verified, and the daily backup task is registered. Public launch remains **NO-GO** only for SMTP; PITR is unavailable on the current plan but is mitigated by the encrypted off-site backup. See **Final Production Verification & Decision** and **Private Storage & Final Verification (2026-10-23)** at the end; these sections supersede earlier storage, deployment, and GO/NO-GO statements.
 
 ## Executive Summary
 
@@ -12,8 +14,8 @@
 - Storage accounting now uses reservation/confirmation/release RPCs with server-side quota checks; client-side quota bypasses were revoked in the pending hardening migration.
 - The application builds cleanly, typechecks, and scores **1.00 for accessibility and SEO** in Lighthouse.
 - Static local load tests sustained ~**4.0k–4.9k requests/second** with zero errors; no breaking point was found at 300 concurrent connections.
-- Production is **not yet approved**. Migrations `0026`–`0028` are unapplied, Worker/Supabase end-to-end flows are unverified, and live Cloudflare headers/redirects have not been checked.
-- Staging is conditionally ready once the database is backed up, migrations are applied, and Worker/Pages environment variables are configured.
+- Production remains **NO-GO for public launch only for SMTP**; Turnstile and encrypted off-site backup are now closed. Migrations `0001`–`0033` are applied, private storage/PDF/admin flows are verified, and live Cloudflare headers/redirects have been checked.
+- A one-time logical database/media backup and restore verification are complete, the encrypted off-site archive is verified, and a daily backup task is registered; staging/limited launch can proceed with public registration disabled until SMTP is configured.
 
 ## Verification Matrix
 
@@ -30,9 +32,9 @@
 | Autocannon static load | PASS | 0 errors/timeouts at 20/100/300 connections |
 | `npm audit` | ATTENTION | 5 high, 2 moderate, 0 critical; Tailwind dev chain; production-only audit is 0 |
 | Secret history scan | PASS | gitleaks `NO_MATCHES` |
-| Remote migrations | NOT RUN | Blocked pending credentials/snapshot |
-| Authenticated E2E | NOT RUN | Blocked pending test users and deployed Worker |
-| Production headers/routing | NOT RUN | Local Pages emulation only |
+| Remote migrations | PASS | `0001`–`0033` applied, pending `0` |
+| Authenticated E2E | PASS | Login, session, profile, dashboard, settings, team, publish requests, storage, sign-out |
+| Production headers/routing | PASS | Live Cloudflare headers and redirects verified |
 
 ## Security and Correctness
 
@@ -271,3 +273,153 @@ No secrets, access tokens, or service-role keys are included in this report.
 - UI smoke tests: production serves `assets/index-IcPKNGFv.js`; the homepage loads with no console errors. Announcement/notification layering, mobile overflow, share-card, and Admin Panel icon fixes were verified earlier.
 - Security/data: the temporary QA account and its test rows were removed; the exposed Worker deploy token was revoked and deleted; the Pages token was rotated and is stored only in the local `.env`.
 - Search indexing: metadata and crawl files are production-ready, but Google/Bing indexing and refreshed social-preview caches depend on third-party recrawls.
+
+## Latest Source Update
+
+**Date:** 2026-10-22
+**Status:** Source changes complete, built, and locally smoke-tested. **Not deployed.** This section supersedes earlier local performance notes only; the release blockers and NO-GO conditions above remain in force.
+
+### Changes
+
+- `AuthContext` now loads Supabase through a retryable dynamic import, resets the promise after a failed import, and cleans up the auth subscription on unmount.
+- `NotificationBell` and `PublicSearchDialog` are lazy-loaded from the public header; Home lazy-loads search and onboarding. The initial HTML preloads only React/UI chunks, not Supabase.
+- Inter Latin is self-hosted at `/fonts/inter-latin.woff2` (48,256 bytes), preloaded with `font-display: optional`; Google Fonts is used only for JetBrains Mono and Great Vibes.
+- Duplicate-submit guards were added to `QuickSaveDialog`, `TasksPanel`, and `DashboardTeam`.
+- Inline-dist-CSS and delayed-boot experiments did not reliably improve LCP and were not adopted.
+- The temporary mobile `text-base` hero experiment was reverted to the original `text-lg sm:text-xl` scale.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | PASS |
+| `npm run build` | PASS; 30 routes, 11 app shells, `404.html` |
+| Home smoke | PASS; boot overlay removed, hero rendered, Inter loaded, search/bell present |
+| Console | Only Cloudflare RUM CORS failures; no application errors |
+| Local mobile CLS | `0` in every post-`display=optional` run |
+| Local mobile performance | `0.88`–`0.98`; LCP `1.96`–`3.42 s`; TBT `27`–`50 ms`; noisy shared-machine benchmark |
+
+Local Lighthouse results are not release evidence: runs varied materially with concurrent browser activity, and the best run (`0.98`, LCP `1.96 s`) was not reproducible. Production PSI/field data must be collected after deployment.
+
+### Remaining release blockers
+
+- SMTP is unconfigured; verification and password-reset delivery are not ready for public use.
+- PITR is unavailable on the current plan; the encrypted daily off-site backup is the documented mitigation.
+- Final commit/tag was pending at the time of this section; it is created after the final diff review.
+
+**Decision:** Production remains **NO-GO for public launch** until SMTP is configured and verified. Turnstile, private storage, and automated/off-site backup are closed. Limited/internal launch can proceed with public registration disabled.
+
+---
+
+## Final Production Verification & Decision
+
+**Date:** 2026-10-23
+
+**Deployment:** Cloudflare Pages `503fcb76` on `https://dev-academy.pages.dev` (also `https://503fcb76.dev-academy.pages.dev`)
+
+**Production asset:** `assets/index-jupyOKy1.js`, `assets/index-B_28QPb6.css`; HTML ETag `"5cd1a67ed073fec174357e94d3e8d87d"`
+
+**Source state:** HEAD `d97eccc` plus the launch-readiness changes; the final commit/tag is created after this report. Production was deployed with `--commit-dirty=true`.
+
+### Changes since the audit
+
+- Created and applied `0031_publish_request_revisions.sql`; the delete policy now allows own `pending` and `needs_changes` requests.
+- Created and applied `0032_share_expiry_upload_dedupe.sql`; new share links default to 30 days, existing links were backfilled, and personal-file deduplication is enforced by `(user_id, sha256_hash)`.
+- Closed the client-side duplicate-upload race with hash preflight plus `23505` compensation; cross-tab races are covered by the database index.
+- Added Arabic 30-day expiry disclosure to both share dialogs.
+- Deferred non-critical `WelcomeOverlay` loading by 2.5 seconds, stopped anonymous pages from mounting `NotificationBell`, and stopped closed search dialogs from loading.
+- Production mobile Lighthouse improved from `89` performance / LCP `3.2s` to `99` / LCP `1.5–2.0s` across two consecutive runs.
+- Added `workers/hf-upload/functions/api/hf-file/[[path]].ts` and `app/public/_routes.json`; personal-file reads now use authenticated same-origin `/api/hf-file/*` with owner, file-share, and list-share authorization.
+- Uploads now rewrite saved URLs to `/api/hf-file/*`; the Hugging Face bucket is `private:true` and direct anonymous S3 access returns `403`.
+- Fixed the production Profile crash caused by a missing `safeHttpUrl` import and replaced the remaining `???` tooltip.
+- Fixed PDF preview by removing the iframe `sandbox` attribute; verified both authenticated personal PDFs and public share PDFs in production.
+
+### Verification results
+
+| Gate | Result |
+| --- | --- |
+| App TypeScript | PASS |
+| Production build + prerender | PASS; 30 public routes, 11 app shells, `404.html` |
+| Supabase migrations | PASS; `0001`–`0033` applied, pending `0` |
+| `0031` delete policy | PASS; authenticated transaction test, rolled back |
+| `0032` trigger/backfill/index | PASS; 2 share tokens expire `2026-11-21`; duplicate groups `0` |
+| `0033` broadcast idempotency | PASS; retry `0` inserted, duplicate `1`; batch mismatch rejected |
+| `create_share_link` | PASS; 30-day expiry verified in transaction, rolled back |
+| Authenticated E2E | PASS; login, session, profile, dashboard routes, settings, team, publish requests, storage, sign-out |
+| Public share view | PASS; valid file/list tokens load, expired/wrong tokens rejected |
+| Private Pages Function | PASS; anonymous private `404`; owner `200`; file-share `200`; list-share `200`; wrong/expired `404`; Range `206`; download attachment; HEAD `200`; OPTIONS `204`; POST `405` |
+| Storage-ledger orphan | PASS; object with `storage_objects` row but no personal-file row: anonymous `404`, owner `200`, direct S3 `403` |
+| Private bucket | PASS; `private:true`, direct anonymous S3 `403`, proxy owner `200` |
+| Production UI upload | PASS; upload returned `/api/hf-file/...`, preview opened without sandbox, delete removed DB row and object |
+| QA cleanup | PASS; temporary QA rows and objects removed; global storage used/reserved `0`; existing production users/tokens untouched |
+| Production smoke | PASS; 17 key routes, `0` uncaught errors after Profile fix; production Lighthouse `99/100/100/100` |
+| Production headers | PASS; HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, CSP, referrer and permissions policies |
+| PageSpeed Insights API | NOT AVAILABLE; unkeyed `429`, keyed `403` |
+| Real HF upload/delete/quota/path E2E | PASS on 2026-10-23 with temporary user and cleanup |
+| Working admin access | PASS; `admin@devacademy.dev` password grant login, `super_admin`, admin RLS `publish_requests` `200 []`; password rotated and stored in `ACCOUNTS-CREDENTIALS.txt` |
+| Supabase logical backup | PASS; custom dump `626,776` bytes covering `public`/`auth`/`storage`; 335 `media` objects backed up (`890,058,704` bytes) with MD5/SHA256 manifests |
+| Restore verification | PASS; restored into a temporary database; row counts/checksums matched source; `65` tables, `3` views, `97` policies, `72` functions, `229` indexes; test DB dropped |
+| Encrypted off-site backup | PASS; `dev-academy-20261023_040149.7z` is `734,725,875` bytes, SHA256 `4fc7a889bbddcb50d002f0f746c45ac889e7b5741aa193ad2393ec38e2ba4cbc`, copied to OneDrive and hash-verified |
+| Scheduled backup | REGISTERED; Windows task `DevAcademy Offsite Backup` is Ready, runs daily at 12:00, and skips the public HF dataset bulk copy. The manual wrapper/script run passed; a scheduler test run was terminated when the interactive session ended, so validate once on an active desktop session |
+| HF dataset coverage | DOCUMENTED; 144 public files/`3,750,683,172` bytes are inventoried in `hf-inventory.tsv`; they are public/reproducible and excluded from the encrypted archive |
+| Backup/PITR posture | PARTIAL; encrypted daily off-site backup verified; PITR is unavailable/paid |
+| Turnstile | PASS; widget `Dev Academy Auth`, site key configured, Supabase Auth captcha enforced (`no captcha_token found` / `invalid-input-response` verified); headless automation cannot complete the human challenge |
+| SMTP | BLOCKED; no SMTP credentials and `smtp_host=false`, `smtp_user=false`, `mailer_autoconfirm=false` |
+
+### Remaining launch risks
+
+| Severity | Risk | Status |
+| --- | --- | --- |
+| Critical | SMTP is unconfigured (`smtp_host=false`, `smtp_user=false`, `mailer_autoconfirm=false`) | Open |
+| High | Scheduled/off-site backup now verified; PITR remains unavailable on the current plan | Mitigated by encrypted daily off-site backup |
+| High | Captcha/Turnstile configured and enforced; human challenge not completed by headless automation | Closed with browser-validation caveat |
+| High | Working admin credentials after QA admin cleanup | Closed 2026-10-23 |
+| High | Real Worker upload/delete/quota/path E2E not exercised in production | Closed 2026-10-23 |
+| High | Personal files were reachable through public Hugging Face URLs | Closed 2026-10-23 |
+| High | Orphaned storage-ledger objects could bypass personal-file privacy | Closed 2026-10-23 |
+| Medium | Broadcast retry after partial failure may duplicate messages | Closed by `0033` |
+| Medium | Legacy Supabase `media` bucket is public (335 objects, ~849 MiB) | Documented; separate from private HF personal files |
+| Medium | CSP still allows `script-src 'unsafe-inline'` and broad `*.workers.dev` | Documented |
+| Low | Real-PDF Chrome sandbox verification not repeated | Closed 2026-10-23 |
+| Low | Oversized declared `Content-Length` HTTP 413 not reproduced through Cloudflare | Open; Worker code check exists |
+
+## Private Storage & Final Verification (2026-10-23)
+
+- **Deployment:** Cloudflare Pages `503fcb76`, `https://dev-academy.pages.dev`; final hardening denies anonymous access to orphaned user-storage ledger objects.
+- **Architecture:** `workers/hf-upload/functions/api/hf-file/[[path]].ts` is deployed as a Pages Function; `app/public/_routes.json` routes only `/api/hf-file/*` to it. Personal uploads store `/api/hf-file/...` URLs, while the existing Worker keeps `POST /upload` and `DELETE /delete` on `dev-academy-hf-upload`.
+- **Turnstile:** widget `Dev Academy Auth`, site key `0x4AAAAAAFh42pNj3E6kQSk_` for `dev-academy.pages.dev`, managed mode; `security_captcha_enabled=true` with provider `turnstile` in Supabase Auth. Missing tokens return `captcha_failed` / `no captcha_token found`; invalid tokens return `invalid-input-response`. The widget loads in production, but headless automation is flagged and cannot complete the challenge.
+- **Access control:** owner bearer; file-share token; list-share membership; expired and wrong tokens return `404`; unrecorded course assets remain public; user objects recorded in `storage_objects` without a personal-file row require the owner bearer.
+- **Bucket:** `devacademy-fcai/devacademy-media` is `private:true`, `size:0`, `totalFiles:0`; direct anonymous S3 GET returns `403`.
+- **Backup set:** `exports/backups/2026-10-23/` contains a `626,776`-byte custom logical dump of `public`/`auth`/`storage`, all 335 legacy `media` objects (`890,058,704` bytes), `media-inventory.tsv`, MD5/SHA256 manifests, and a casefold map for the two case-only object names (`Task 2.pdf` / `task 2.pdf`). `exports/` is gitignored.
+- **Restore proof:** the dump restored into a temporary database; source/restore counts and key-table checksums matched (`16` users/profiles, `2` share tokens, `33` migrations, `46` subjects, `155` lectures, `335` Supabase `storage.objects` legacy media rows), with `65` tables, `3` views, `97` policies, `72` functions, `229` indexes, and `54` RLS tables. The temporary database was dropped.
+- **Restore caveat:** validation used `pg_restore --no-owner --no-privileges` because Supabase default ACLs are owned by `supabase_auth_admin`; a production restore should run as `supabase_admin` or reapply grants/migrations.
+- **Encrypted off-site backup:** `exports/backups/dev-academy-20261023_040149.7z` is `734,725,875` bytes with SHA256 `4fc7a889bbddcb50d002f0f746c45ac889e7b5741aa193ad2393ec38e2ba4cbc`; the archive is encrypted with `-mhe=on`, copied to `C:\Users\islam\OneDrive\DevAcademyBackups\20261023_040149\`, and the copy hash matches. It contains the database dump, all 335 Supabase `media` objects, media manifests, and the HF inventory.
+- **Scheduled backup:** Windows task `DevAcademy Offsite Backup` is `Ready`, runs daily at `12:00`, uses `scripts/run-backup-offsite.ps1`, keeps 14 days locally/off-site, and sets `BACKUP_INCLUDE_HF=0` so the 3.75 GiB public HF dataset is inventoried rather than re-downloaded on every run. The manual wrapper/script path passed; a scheduler test run was terminated when the interactive session ended, so validate once on an active desktop session.
+- **HF dataset:** `devacademy-fcai/devacademy-media` contains 144 public files (`3,750,683,172` bytes) under `drive/` and `imports/`; `hf-inventory.tsv` records the full list. It is public and reproducible, so the encrypted archive deliberately excludes the bulk files. The private HF bucket remains empty.
+- **Backup posture:** PITR is disabled/paid; the encrypted daily off-site backup with 14-day retention is the mitigation. The legacy Supabase `media` bucket is public (`335` objects, ~849 MiB) and separate from the private HF personal-file bucket.
+- **SMTP:** remains unconfigured (`smtp_host=false`, `smtp_user=false`, `mailer_autoconfirm=false`). Cloudflare Email Service SMTP (`smtp.mx.cloudflare.net:465`, username `api_token`) was evaluated but requires Workers Paid/Email Sending, so it was not enabled under the no-paid-resource constraint.
+- **Admin access:** `admin@devacademy.dev` (`ddbae3be-fe9c-40bc-9875-3a9fe8d2ca76`, `super_admin`) password grant login passed, profile role is `super_admin`, and admin RLS probe returned `200 []`; password was rotated and stored only in `ACCOUNTS-CREDENTIALS.txt`.
+- **Existing production data:** `16` auth users/profiles, `2` `lecture_item` share tokens expiring `2026-11-21`, and `335` Supabase `media` objects remain; app `storage_objects`, `storage_reservations`, and upload queue are `0`; HF bucket is empty.
+- **Production proxy checks:** anonymous private `404`; owner/file-share/list-share `200`; wrong/expired `404`; storage-ledger orphan anonymous `404` and owner `200`; anonymous unrecorded course asset `200`; Range `206`; download attachment; HEAD `200`; OPTIONS `204`; POST `405`; CORS restricted to the production origin.
+- **UI checks:** authenticated profile upload returned a proxy URL and previewed the PDF; file-share and list-share public pages previewed the same PDF; expired share page showed the Arabic error state; profile no longer crashes and the tooltip is `فتح الملف`.
+- **PDF:** production public and authenticated previews render with `sandbox=null`; evidence in `qa-private-proxy-profile.png` and `qa-private-proxy-share.png`.
+- **Cleanup:** temporary QA auth user/profile, personal file, saved list/items, share tokens, storage objects/reservations/usage, HF objects, and temporary credentials were deleted. Temporary test rows are `0`; global storage used/reserved are `0`; existing production users and share tokens were left untouched.
+- **Operational note:** Pages Functions deployment is reproducible only when `wrangler pages deploy ../../app/dist ...` runs from `workers/hf-upload` so the `functions` directory and `aws4fetch`/`jose` resolve.
+
+### القرار النهائي (Final Decision)
+
+**الإطلاق العام: NO-GO.**
+
+النسخة المنشورة `503fcb76` اجتازت البناء والمصادقة والمشاركة واختبارات الرفع/الحذف/الحصة/المسار في الإنتاج، وأصبحت ملفات المستخدمين الشخصية محمية عبر Pages Function و`/api/hf-file/*` مع bucket خاص، وأوراق التخزين اليتيمة مالك-فقط. تم إغلاق مخاطر PDF وروابط Hugging Face العامة وتكرار البث، وتم التحقق من حساب إداري عامل بعد تدوير كلمة مروره. Turnstile مُفعّل ومفروض على Supabase Auth، وتم إنشاء نسخة احتياطية مشفرة خارج الموقع (734,725,875 بايت) والتحقق من الـhash بعد النسخ إلى OneDrive، مع مهمة نسخ احتياطي يومية مجدولة. تم توثيق 144 ملفًا عامًا من Hugging Face (3.75GiB) في inventory بدل تضمينها في الأرشيف لأنها عامة وقابلة لإعادة التنزيل. يبقى الإطلاق العام غير آمن بسبب **SMTP فقط**؛ PITR غير متاح في الخطة الحالية لكن النسخ المشفر اليومي يغطيه كإجراء تخفيف.
+
+**إطلاق محدود/تجريبي: GO بشرط.**
+
+يمكن استخدام النسخة الحالية لعرض محدود أو فريق داخلي مع تعطيل التسجيل العام، حتى يتم إغلاق بند SMTP. التخزين الشخصي خاص والنسخ الاحتياطي المشفر يعمل، لكن يجب عدم رفع بيانات حساسة قبل تفعيل SMTP والتحقق اليدوي من Turnstile.
+
+**شرط التحويل إلى GO للإطلاق العام:**
+
+1. إعداد SMTP موثوق وتأكيد وصول رسائل التحقق وإعادة التعيين.
+2. التحقق اليدوي من تحدي Turnstile في متصفح حقيقي (الأتمتة الحالية تظهر كبوت).
+3. إنشاء commit/tag نهائي وإعادة تشغيل smoke/regression بعد أي تغييرات تشغيلية.
+
+The performance target is now met in production. The release decision is driven by operational controls and data-protection gaps, not by the frontend or the current Lighthouse score.

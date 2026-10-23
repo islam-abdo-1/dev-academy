@@ -151,7 +151,7 @@ export default function Login() {
     if (cooldownLeft > 0) return;
     setSending(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${window.location.origin}/reset-password`,
       captchaToken: captchaToken || undefined,
     });
     setSending(false);

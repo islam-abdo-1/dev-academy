@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, Search, Settings, X } from "lucide-react";
+import { Bell, Menu, Search, Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
-import NotificationBell from "@/components/dashboard/NotificationBell";
+const NotificationBell = lazy(
+  () => import("@/components/dashboard/NotificationBell"),
+);
 import UserAvatar from "@/components/UserAvatar";
 import VaultIcon from "@/components/icons/VaultIcon";
-import PublicSearchDialog from "./PublicSearchDialog";
+const PublicSearchDialog = lazy(() => import("./PublicSearchDialog"));
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
@@ -134,7 +136,22 @@ export default function PublicHeader({ onSearchOpen }) {
               </kbd>
             </button>
 
-            <NotificationBell userEmail={profile?.email || user?.email || ""} />
+            {user && (
+              <Suspense
+                fallback={
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-9 w-9 items-center justify-center text-muted-foreground"
+                  >
+                    <Bell size={18} />
+                  </span>
+                }
+              >
+                <NotificationBell
+                  userEmail={profile?.email || user?.email || ""}
+                />
+              </Suspense>
+            )}
 
             {!user && (
               <Link to="/login">
@@ -185,11 +202,13 @@ export default function PublicHeader({ onSearchOpen }) {
         </div>
       </div>
 
-      {!onSearchOpen && (
-        <PublicSearchDialog
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-        />
+      {!onSearchOpen && searchOpen && (
+        <Suspense fallback={null}>
+          <PublicSearchDialog
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+          />
+        </Suspense>
       )}
 
       {mobileOpen && (

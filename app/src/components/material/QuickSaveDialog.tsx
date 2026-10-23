@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookmarkPlus, LoaderCircle, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +32,7 @@ export function QuickSaveDialog({ open, material, onClose }: QuickSaveDialogProp
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
   const { addItem } = useSavedItems(selectedListId || null);
 
   const selectedSubject = useMemo(
@@ -79,48 +80,54 @@ export function QuickSaveDialog({ open, material, onClose }: QuickSaveDialogProp
   if (!open || !material) return null;
 
   const handleSubmit = async () => {
-    let listId = selectedListId;
-    if (!listId) {
-      const trimmedName = newListName.trim();
-      if (!trimmedName) {
-        toast.error("اختر قائمة أو اكتب اسم قائمة جديدة");
-        return;
+    if (saveLock.current) return;
+    saveLock.current = true;
+    try {
+      let listId = selectedListId;
+      if (!listId) {
+        const trimmedName = newListName.trim();
+        if (!trimmedName) {
+          toast.error("اختر قائمة أو اكتب اسم قائمة جديدة");
+          return;
+        }
+        setCreatingList(true);
+        const created = await createList(trimmedName);
+        setCreatingList(false);
+        if (!created) {
+          toast.error("تعذر إنشاء القائمة");
+          return;
+        }
+        listId = created.id;
+        setSelectedListId(created.id);
       }
-      setCreatingList(true);
-      const created = await createList(trimmedName);
-      setCreatingList(false);
-      if (!created) {
-        toast.error("تعذر إنشاء القائمة");
-        return;
+
+      setSaving(true);
+      const baseSave = material.save || {
+        content_type: "external" as const,
+        external_url: material.url,
+        kind: "other" as const,
+        title: material.title,
+      };
+
+      const result = await addItem(listId, {
+        ...baseSave,
+        subject_id: selectedSubject?.id || baseSave.subject_id || null,
+        year: selectedSubject?.year || baseSave.year || null,
+        semester: selectedSubject?.semester || baseSave.semester || null,
+        title: baseSave.title || material.title,
+        user_notes: notes.trim() || null,
+      });
+      setSaving(false);
+
+      if (result) {
+        window.dispatchEvent(new Event("dev-academy:saved-items-changed"));
+        toast.success("تم حفظ المادة في الخزنة");
+        onClose();
+      } else {
+        toast.error("تعذر حفظ المادة");
       }
-      listId = created.id;
-      setSelectedListId(created.id);
-    }
-
-    setSaving(true);
-    const baseSave = material.save || {
-      content_type: "external" as const,
-      external_url: material.url,
-      kind: "other" as const,
-      title: material.title,
-    };
-
-    const result = await addItem(listId, {
-      ...baseSave,
-      subject_id: selectedSubject?.id || baseSave.subject_id || null,
-      year: selectedSubject?.year || baseSave.year || null,
-      semester: selectedSubject?.semester || baseSave.semester || null,
-      title: baseSave.title || material.title,
-      user_notes: notes.trim() || null,
-    });
-    setSaving(false);
-
-    if (result) {
-      window.dispatchEvent(new Event("dev-academy:saved-items-changed"));
-      toast.success("تم حفظ المادة في الخزنة");
-      onClose();
-    } else {
-      toast.error("تعذر حفظ المادة");
+    } finally {
+      saveLock.current = false;
     }
   };
 

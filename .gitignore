@@ -14,3 +14,10 @@ supabase/.temp/
 .wrangler/
 Thumbs.db
 ACCOUNTS-CREDENTIALS.txt
+
+# Local QA evidence (not shipped)
+/qa-*.png
+/prod-*.jpeg
+/desktop-about.jpeg
+/mobile-*.jpeg
+/pdf-subject-expanded.png

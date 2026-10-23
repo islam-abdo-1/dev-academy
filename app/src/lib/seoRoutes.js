@@ -93,6 +93,14 @@ export function seoFor(pathname) {
     };
   }
 
+  if (path === "/reset-password") {
+    return {
+      title: pageTitle("تعيين كلمة المرور"),
+      description: "إعادة تعيين كلمة المرور في Dev Academy.",
+      robots: "noindex, nofollow",
+    };
+  }
+
   if (path === "/profile") {
     return {
       title: pageTitle("الملف الشخصي"),
@@ -158,5 +166,5 @@ export function publicRoutes() {
 }
 
 export function shellRoutes() {
-  return ["/login", "/profile", "/dashboard", "/dashboard/subjects", "/dashboard/resources", "/dashboard/team", "/dashboard/settings", "/dashboard/publish-requests", "/dashboard/storage", "/admin"];
+  return ["/login", "/reset-password", "/profile", "/dashboard", "/dashboard/subjects", "/dashboard/resources", "/dashboard/team", "/dashboard/settings", "/dashboard/publish-requests", "/dashboard/storage", "/admin"];
 }

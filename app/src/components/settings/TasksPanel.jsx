@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CalendarClock,
@@ -93,6 +93,7 @@ export default function TasksPanel({ user }) {
   const [tasks, setTasks] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const loadTasks = useCallback(async () => {
     const rows = await db.list("tasks", {
@@ -154,10 +155,12 @@ export default function TasksPanel({ user }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (sendingRef.current) return;
     if (!title.trim()) {
       toast.error("اكتب عنوان المهمة");
       return;
     }
+    sendingRef.current = true;
     setSending(true);
     try {
       await db.create("tasks", {
@@ -180,6 +183,7 @@ export default function TasksPanel({ user }) {
     } catch {
       toast.error("حصلت مشكلة أثناء الإضافة، حاول تاني");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };

@@ -21,6 +21,7 @@ import {
 import { MaterialTypeIcon } from '@/components/material/MaterialTypeIcon';
 import { materialFromSharedItem } from '@/components/material/types';
 import { useMaterialViewer } from '@/components/material/MaterialViewerProvider';
+import { withWorkerShareToken } from '@/lib/workerUrl';
 
 type SharedResourceType =
   | 'file'
@@ -112,7 +113,14 @@ export function PublicShareView() {
           return;
         }
 
-        setData(result as ShareData);
+        const shared = result as ShareData;
+        setData({
+          ...shared,
+          items: (shared.items || []).map((item) => ({
+            ...item,
+            url: item.url ? withWorkerShareToken(item.url, token) : item.url,
+          })),
+        });
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'تعذر تحميل المشاركة.');
@@ -315,7 +323,7 @@ export function PublicShareView() {
                         <Eye className="h-4 w-4" />
                       </button>
                     )}
-                    {canPreview && !isSupabaseStorageHtml(item) && (
+                    {downloadAllowed && canPreview && !isSupabaseStorageHtml(item) && (
                       <a
                         href={safeItemUrl}
                         target="_blank"

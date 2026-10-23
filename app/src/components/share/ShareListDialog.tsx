@@ -233,6 +233,7 @@ export function ShareListDialog({ open, onClose, listId, listName, onShare }: Sh
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">الرابط صالح لمدة 30 يومًا من الآن.</p>
             </div>
 
             <DialogFooter className="gap-2">

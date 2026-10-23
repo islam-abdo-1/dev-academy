@@ -9,6 +9,91 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      @font-face {
+        font-family: Inter;
+        font-style: normal;
+        font-weight: 300 700;
+        font-display: optional;
+        src: url("/fonts/inter-latin.woff2") format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC,
+          U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+          U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #05050c;
+        color: #dbe6f0;
+      }
+      #boot-home {
+        box-sizing: border-box;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      #boot-home .boot-inner {
+        width: 100%;
+        max-width: 896px;
+        text-align: center;
+      }
+      #boot-home h1 {
+        margin: 0 0 24px;
+        font-size: 36px;
+        line-height: 40px;
+        font-weight: 700;
+      }
+      #boot-home h1 span {
+        background: linear-gradient(135deg, #00d4ff, #33cc99);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      #boot-home p {
+        max-width: 672px;
+        margin: 0 auto 40px;
+        color: #7588a3;
+        font-size: 18px;
+        line-height: 28px;
+        font-weight: 300;
+      }
+      #boot-home a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 48px;
+        padding: 0 32px;
+        border-radius: 6px;
+        background: #00d4ff;
+        color: #04040b;
+        font-size: 18px;
+        line-height: 28px;
+        font-weight: 500;
+        text-decoration: none;
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+      }
+      @media (min-width: 640px) {
+        #boot-home h1 {
+          font-size: 48px;
+          line-height: 48px;
+        }
+        #boot-home p {
+          font-size: 20px;
+        }
+      }
+      @media (min-width: 768px) {
+        #boot-home h1 {
+          font-size: 72px;
+          line-height: 72px;
+        }
+      }
+    </style>
     <meta
       name="description"
       content="Dev Academy — ديف أكاديمي، منصة تعليمية عربية: محاضرات وملخصات وكتب وحلول وامتحانات سابقة في الذكاء الاصطناعي والأمن السيبراني وعلوم الحاسب."
@@ -52,17 +137,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://uytyvnoqhqivvhujdxoc.supabase.co" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
 
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Great+Vibes&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Great+Vibes&display=optional"
       media="print"
       onload="this.media='all'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Great+Vibes&display=swap"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Great+Vibes&display=optional"
       />
     </noscript>
     <script type="application/ld+json">
@@ -133,6 +225,24 @@
       </div>
     </noscript>
     <div id="root"></div>
+    <!-- boot-home:start -->
+    <div id="boot-home">
+      <div class="boot-inner">
+        <h1>Master <span>AI &amp; Cybersecurity</span></h1>
+        <p>
+          A premium educational platform for mastering Artificial Intelligence
+          and Cybersecurity — built for elite learners and professionals.
+        </p>
+        <a href="/explore">Get Started →</a>
+      </div>
+    </div>
+    <!-- boot-home:end -->
+    <script>
+      if (window.location.pathname !== "/") {
+        var bootHome = document.getElementById("boot-home");
+        if (bootHome) bootHome.remove();
+      }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
     <!-- Cloudflare Web Analytics -->
     <script

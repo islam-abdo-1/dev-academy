@@ -41,13 +41,12 @@ import { ShareListDialog } from "@/components/share/ShareListDialog";
 import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
 import { materialFromPersonalFile } from "@/components/material/types";
 import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
-import { useSavedLists } from "@/hooks/useSavedLists";
-import { useSavedItems } from "@/hooks/useSavedItems";
 import { useShares } from "@/hooks/useShares";
 import { usePersonalFiles } from "@/hooks/usePersonalFiles";
 import { usePublishRequests } from "@/hooks/usePublishRequests";
 import { compressAvatar } from "@/lib/images/compress";
 import { safeHttpUrl } from "@/lib/materialPreview";
+
 import { cn, formatDate } from "@/lib/utils";
 import {
   Tabs,
@@ -227,14 +226,19 @@ export default function Profile() {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareListId, setShareListId] = useState(null);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [revisionItems, setRevisionItems] = useState([]);
 
-  const { lists, loading: listsLoading, createList, refresh: refreshLists } = useSavedLists();
-  const { shares, loading: sharesLoading, revokeShare, refresh: refreshShares } = useShares();
+  const {
+    shares,
+    loading: sharesLoading,
+    error: sharesError,
+    revokeShare,
+    refresh: refreshShares,
+  } = useShares();
   const {
     files: personalFiles,
     loading: personalLoading,
-    uploading: personalUploading,
-    uploadProgress,
+    error: personalError,
     deleteFile,
     togglePublic,
     refresh: refreshPersonalFiles,
@@ -242,6 +246,7 @@ export default function Profile() {
   const {
     requests: publishRequests,
     loading: requestsLoading,
+    error: requestsError,
     cancelRequest,
     refresh: refreshRequests,
   } = usePublishRequests();
@@ -268,10 +273,23 @@ export default function Profile() {
   };
 
   const handleCancelRequest = async (requestId) => {
-    if (!confirm("إلغاء طلب النشر؟")) return;
+    if (!confirm("هل تريد إلغاء الطلب؟")) return;
     const ok = await cancelRequest(requestId);
     if (ok) toast.success("تم إلغاء الطلب");
     else toast.error("تعذر إلغاء الطلب");
+  };
+
+  const handleReviseRequest = async (request) => {
+    if (!confirm("سيُلغى الطلب الحالي وتُفتح لك نفس الملفات لتعديلها وإعادة إرسالها. هل تريد المتابعة؟")) {
+      return;
+    }
+    const ok = await cancelRequest(request.id);
+    if (!ok) {
+      toast.error("تعذر فتح الطلب للتعديل");
+      return;
+    }
+    setRevisionItems(request.items || []);
+    setPublishOpen(true);
   };
 
   const statusLabel = {
@@ -661,7 +679,9 @@ const handleListSelect = function(listId) {
                   <SavedListView
                     listId={selectedListId}
                     onClose={() => setSelectedListId(null)}
-                    onChanged={refreshLists}
+                    onChanged={() =>
+                      window.dispatchEvent(new Event("dev-academy:saved-items-changed"))
+                    }
                   />
                 )}
                 <ShareListDialog
@@ -685,7 +705,12 @@ const handleListSelect = function(listId) {
                       ارفع ملفاتك وشاركها أو اطلب نشرها في الكتالوج
                     </p>
                   </div>
-                  <Button onClick={() => setPublishOpen(true)}>
+                  <Button
+                    onClick={() => {
+                      setRevisionItems([]);
+                      setPublishOpen(true);
+                    }}
+                  >
                     <Send className="mr-2 h-4 w-4" />
                     طلب نشر
                   </Button>
@@ -714,6 +739,17 @@ const handleListSelect = function(listId) {
                     {personalLoading && personalFiles.length === 0 ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">
                         جارٍ تحميل الملفات...
+                      </div>
+                    ) : personalError && personalFiles.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-destructive">
+                        تعذر تحميل الملفات.{" "}
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => void refreshPersonalFiles()}
+                        >
+                          إعادة المحاولة
+                        </button>
                       </div>
                     ) : personalFiles.length === 0 ? (
                       <div className="p-6 text-center text-sm text-muted-foreground">
@@ -755,7 +791,7 @@ const handleListSelect = function(listId) {
                                       : "bg-muted text-muted-foreground",
                                   )}
                                 >
-                                  {file.is_public ? "عام" : "خاص"}
+                                  {file.is_public ? "منشور" : "غير منشور"}
                                 </span>
                               </div>
                               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -765,15 +801,14 @@ const handleListSelect = function(listId) {
                             </div>
                             <div className="flex items-center gap-1">
                               {safeHttpUrl(file.file_url) && (
-                                <a
-                                  href={safeHttpUrl(file.file_url)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => openMaterial(materialFromPersonalFile(file))}
                                   className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-primary"
-                                  title="فتح"
+                                  title="فتح الملف"
                                 >
                                   <ExternalLink className="h-4 w-4" />
-                                </a>
+                                </button>
                               )}
                               <button
                                 className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-primary"
@@ -784,7 +819,11 @@ const handleListSelect = function(listId) {
                               </button>
                               <button
                                 className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-primary"
-                                title={file.is_public ? "جعله خاصًا" : "جعله عامًا"}
+                                title={
+                                  file.is_public
+                                    ? "إخفاؤه من العرض العام"
+                                    : "نشره في العرض العام"
+                                }
                                 onClick={() => handleTogglePublic(file.id)}
                               >
                                 {file.is_public ? (
@@ -820,6 +859,17 @@ const handleListSelect = function(listId) {
                       <div className="p-4 text-center text-sm text-muted-foreground">
                         جارٍ تحميل الطلبات...
                       </div>
+                    ) : requestsError && publishRequests.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-destructive">
+                        تعذر تحميل طلبات النشر.{" "}
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => void refreshRequests()}
+                        >
+                          إعادة المحاولة
+                        </button>
+                      </div>
                     ) : publishRequests.length === 0 ? (
                       <div className="p-6 text-center text-sm text-muted-foreground">
                         لا توجد طلبات نشر بعد.
@@ -827,7 +877,8 @@ const handleListSelect = function(listId) {
                     ) : (
                       <div className="space-y-2">
                         {publishRequests.map((request) => {
-                          const isPending = request.status === "pending";
+                          const canCancel =
+                            request.status === "pending" || request.status === "needs_changes";
                           const Icon =
                             request.status === "approved"
                               ? CheckCircle2
@@ -862,7 +913,16 @@ const handleListSelect = function(listId) {
                                   </p>
                                 )}
                               </div>
-                              {isPending && (
+                              {request.status === "needs_changes" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleReviseRequest(request)}
+                                >
+                                  تعديل وإعادة الإرسال
+                                </Button>
+                              )}
+                              {canCancel && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -891,6 +951,17 @@ const handleListSelect = function(listId) {
                   {sharesLoading ? (
                     <div className="p-4 text-center text-muted-foreground">
                       Loading shares...
+                    </div>
+                  ) : sharesError && shares?.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-destructive">
+                      تعذر تحميل المشاركات.{" "}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => void refreshShares()}
+                      >
+                        إعادة المحاولة
+                      </button>
                     </div>
                   ) : shares?.length === 0 ? (
                     <div className="text-center py-8">
@@ -965,8 +1036,12 @@ const handleListSelect = function(listId) {
 
               <PublishRequestDialog
                 open={publishOpen}
-                onClose={() => setPublishOpen(false)}
+                onClose={() => {
+                  setPublishOpen(false);
+                  setRevisionItems([]);
+                }}
                 onSubmitted={refreshRequests}
+                initialItems={revisionItems}
               />
             </div>
           )}

@@ -38,7 +38,7 @@ interface SavedListsSidebarProps {
 export function SavedListsSidebar({ className, onSelectList, onShareList }: SavedListsSidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { lists, loading, createList, updateList, deleteList } = useSavedLists();
+  const { lists, loading, error, createList, updateList, deleteList, refresh } = useSavedLists();
   const [expandedListId, setExpandedListId] = useState<string | null>(null);
   const [creatingList, setCreatingList] = useState(false);
   const [newListName, setNewListName] = useState('');
@@ -157,6 +157,13 @@ export function SavedListsSidebar({ className, onSelectList, onShareList }: Save
           <div className="p-4 text-center text-muted-foreground">
             Loading lists...
           </div>
+        ) : error ? (
+          <div className="p-4 text-center">
+            <p className="text-sm text-destructive">تعذر تحميل القوائم</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => void refresh()}>
+              إعادة المحاولة
+            </Button>
+          </div>
         ) : lists.length === 0 ? (
           <div className="p-4 text-center">
             <FolderOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
@@ -238,7 +245,13 @@ export function SavedListsSidebar({ className, onSelectList, onShareList }: Save
                           }}
                         >
                           <span className="text-xs text-muted-foreground/50">{index + 1}.</span>
-                          <span className="truncate flex-1">{item.official_material?.title || item.personal_file?.title || 'Untitled'}</span>
+                          <span className="truncate flex-1">
+                            {item.title ||
+                              item.official_material?.title ||
+                              item.personal_file?.title ||
+                              item.external_url ||
+                              'Untitled'}
+                          </span>
                           <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                             {item.kind || 'item'}
                           </span>

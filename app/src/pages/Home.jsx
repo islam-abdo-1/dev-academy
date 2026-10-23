@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { BookOpen, Brain, Rocket, Shield, UserRound } from "lucide-react";
 import PublicBackground from "@/components/layout/PublicBackground";
 import PublicHeader from "@/components/layout/PublicHeader";
-import PublicSearchDialog from "@/components/layout/PublicSearchDialog";
+const PublicSearchDialog = lazy(
+  () => import("@/components/layout/PublicSearchDialog"),
+);
 import PublicFooter from "@/components/layout/PublicFooter";
-import OnboardingWizard from "@/components/home/OnboardingWizard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
+
+const OnboardingWizard = lazy(() => import("@/components/home/OnboardingWizard"));
 
 const FEATURES = [
   {
@@ -58,20 +60,11 @@ function HeroSection() {
             AI & Cybersecurity
           </span>
         </h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-muted-foreground text-lg sm:text-xl font-light max-w-2xl mx-auto mb-10"
-        >
+        <p className="text-muted-foreground text-lg sm:text-xl font-light max-w-2xl mx-auto mb-10">
           A premium educational platform for mastering Artificial Intelligence
           and Cybersecurity — built for elite learners and professionals.
-        </motion.p>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-        >
+        </p>
+        <div>
           <Button
             asChild
             size="lg"
@@ -80,7 +73,7 @@ function HeroSection() {
           >
             <Link to="/explore">Get Started →</Link>
           </Button>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
@@ -97,13 +90,9 @@ function FeaturesSection() {
           Everything you need to become an expert in the most in-demand fields.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {FEATURES.map((feature, index) => (
-            <motion.div
+          {FEATURES.map((feature) => (
+            <div
               key={feature.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.15 }}
               className="neon-card rounded-lg p-6 bg-card cursor-default"
               style={{ borderTop: "2px solid hsl(190, 100%, 50%)" }}
             >
@@ -114,7 +103,7 @@ function FeaturesSection() {
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {feature.description}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
@@ -221,6 +210,13 @@ export default function Home() {
     !!profile && (!profile.major || !profile.year || !profile.semester);
 
   useEffect(() => {
+    const boot = document.getElementById("boot-home");
+    if (!boot) return;
+    const frame = requestAnimationFrame(() => boot.remove());
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     const handler = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") {
         event.preventDefault();
@@ -244,11 +240,17 @@ export default function Home() {
       <FeaturesSection />
       <AboutSection />
       <PublicFooter />
-      <PublicSearchDialog
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-      />
-      {needsOnboarding && <OnboardingWizard onComplete={handleComplete} />}
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <PublicSearchDialog
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+          />
+        </Suspense>
+      )}
+      <Suspense fallback={null}>
+        {needsOnboarding && <OnboardingWizard onComplete={handleComplete} />}
+      </Suspense>
     </div>
   );
 }

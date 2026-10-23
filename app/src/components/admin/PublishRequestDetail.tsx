@@ -53,30 +53,78 @@ export function PublishRequestDetail({
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [requestFiles, setRequestFiles] = useState<Record<string, any>>({});
+  const [destinations, setDestinations] = useState<{
+    subjects: Record<string, string>;
+    chapters: Record<string, string>;
+    sections: Record<string, string>;
+  }>({ subjects: {}, chapters: {}, sections: {} });
 
   useEffect(() => {
     const ids = (request.items || [])
       .filter((item: any) => item.type === 'personal' && item.id)
       .map((item: any) => item.id);
-    if (ids.length === 0) {
+    const subjectIds = [
+      ...new Set(
+        (request.items || []).map((item: any) => item.target_subject_id).filter(Boolean),
+      ),
+    ];
+    const chapterIds = [
+      ...new Set(
+        (request.items || []).map((item: any) => item.target_chapter_id).filter(Boolean),
+      ),
+    ];
+    const sectionIds = [
+      ...new Set(
+        (request.items || []).map((item: any) => item.target_section_id).filter(Boolean),
+      ),
+    ];
+
+    if (ids.length === 0 && subjectIds.length === 0) {
       setRequestFiles({});
+      setDestinations({ subjects: {}, chapters: {}, sections: {} });
       return;
     }
+
     let cancelled = false;
-    supabase
-      .from('user_personal_files')
-      .select('id,title,description,file_url,file_type,file_size,mime_type')
-      .in('id', ids)
-      .then(({ data }) => {
-        if (cancelled) return;
-        setRequestFiles(
-          Object.fromEntries((data || []).map((file: any) => [String(file.id), file])),
-        );
+    Promise.all([
+      ids.length
+        ? supabase
+            .from('user_personal_files')
+            .select('id,title,description,file_url,file_type,file_size,mime_type')
+            .in('id', ids)
+        : Promise.resolve({ data: [] }),
+      subjectIds.length
+        ? supabase.from('subjects').select('id,name').in('id', subjectIds)
+        : Promise.resolve({ data: [] }),
+      chapterIds.length
+        ? supabase.from('chapters').select('id,title').in('id', chapterIds)
+        : Promise.resolve({ data: [] }),
+      sectionIds.length
+        ? supabase.from('sections').select('id,title').in('id', sectionIds)
+        : Promise.resolve({ data: [] }),
+    ]).then(([filesResult, subjectsResult, chaptersResult, sectionsResult]) => {
+      if (cancelled) return;
+      setRequestFiles(
+        Object.fromEntries(
+          (filesResult.data || []).map((file: any) => [String(file.id), file]),
+        ),
+      );
+      const toMap = (rows: any[] = []) =>
+        Object.fromEntries(rows.map((row: any) => [String(row.id), row.name || row.title]));
+      setDestinations({
+        subjects: toMap(subjectsResult.data || []),
+        chapters: toMap(chaptersResult.data || []),
+        sections: toMap(sectionsResult.data || []),
       });
+    }).catch(() => {
+      if (cancelled) return;
+      setRequestFiles({});
+      setDestinations({ subjects: {}, chapters: {}, sections: {} });
+    });
     return () => {
       cancelled = true;
     };
-  }, [request.id]);
+  }, [request.id, request.items]);
 
   const renderItemsTab = () => (
     <div className="space-y-4">
@@ -108,8 +156,33 @@ export function PublishRequestDetail({
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {item.subject && <span>Subject: {item.subject}</span>}
-                    {item.chapter && <span>Chapter: {item.chapter}</span>}
+                    {item.target_subject_id && (
+                      <span>
+                        Subject:{' '}
+                        {destinations.subjects[item.target_subject_id] ||
+                          `#${String(item.target_subject_id).slice(0, 8)}`}
+                      </span>
+                    )}
+                    {item.target_chapter_id && (
+                      <span>
+                        Chapter:{' '}
+                        {destinations.chapters[item.target_chapter_id] ||
+                          `#${String(item.target_chapter_id).slice(0, 8)}`}
+                      </span>
+                    )}
+                    {item.target_section_id && (
+                      <span>
+                        Section:{' '}
+                        {destinations.sections[item.target_section_id] ||
+                          `#${String(item.target_section_id).slice(0, 8)}`}
+                      </span>
+                    )}
+                    {!item.target_subject_id && item.subject && (
+                      <span>Subject: {item.subject}</span>
+                    )}
+                    {!item.target_chapter_id && item.chapter && (
+                      <span>Chapter: {item.chapter}</span>
+                    )}
                     {fileType && (
                       <span className="px-2 py-0.5 rounded bg-muted/50">
                         {String(fileType).toUpperCase()}
