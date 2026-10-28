@@ -188,6 +188,29 @@ The Windows task `DevAcademy Offsite Backup` runs the wrapper daily at 12:00, st
 
 The Windows task `DevAcademy Backup Check` runs `scripts/check-backup-freshness.ps1` daily at 20:00 and fails if the newest OneDrive archive is older than 36 hours. On failure it writes `C:\Users\islam\OneDrive\DevAcademyBackups\BACKUP-ALERT.txt`; the alert is removed automatically on the next successful check. Results are appended to `exports/backups/backup-check.log`.
 
+### Legacy media migration (Supabase Storage → Hugging Face)
+
+The free Supabase project holds 335 legacy `media` objects (about 849 MB) and is close to the 1 GB Storage limit. The public Hugging Face dataset `devacademy-fcai/devacademy-media` is the new home for those objects under `legacy/`. Database links are rewritten only after the upload is verified, in batches of 25, with a rollback file for every row.
+
+Inventory at the start of the migration: 494 database links (315 `lecture_items.url`, 178 `section_items.url`, 1 `profiles.avatar_url`), 295 distinct referenced objects, 335 total objects, 40 unreferenced objects, and 0 missing objects.
+
+```powershell
+# 1. Upload the cached objects (reads exports/backups/.media-cache directly;
+#    the two case-only paths cannot coexist in a Windows staging folder).
+python scripts/upload-legacy-media.py
+
+# 2. Build the current link inventory and rewrite plan (read-only).
+node scripts/migrate-media-to-hf.mjs inventory
+
+# 3. Rewrite 25 rows at a time; progress is resumable.
+node scripts/migrate-media-to-hf.mjs rewrite --apply --batch-size 25
+
+# 4. Confirm zero legacy links and probe 25 random HF URLs (status + size).
+node scripts/migrate-media-to-hf.mjs verify
+```
+
+`rewrite` prints a dry run unless `--apply` is passed. Each batch is confirmed row by row before `progress.json` advances, so an interrupted run can be restarted with the same command. `rollback.sql` restores every rewritten link to its original Supabase Storage URL and is generated from the inventory; keep `exports/media-migration/` (gitignored) until the Supabase objects are deleted. The source objects stay in Supabase for 14 days after the verified cutover (until **2026-11-11**) before deletion, so a rollback remains possible.
+
 ### Turnstile
 
 Supabase Auth captcha is configured with the Turnstile widget `Dev Academy Auth`. The site key is public and belongs in `app/.env`; the secret belongs only in Supabase Auth settings and the root local `.env`. The public Google button does not use Turnstile, and the legacy email/password page is disabled in production.
