@@ -198,7 +198,11 @@ Inventory at the start of the migration: 494 database links (315 `lecture_items.
 # 1. Upload the cached objects (reads exports/backups/.media-cache directly;
 #    the two case-only paths cannot coexist in a Windows staging folder).
 python scripts/upload-legacy-media.py
+```
 
+The uploader commits in batches of 20 files / 50 MiB with three retries per batch. It lists the remote `legacy/` tree first and skips files whose size already matches, so an interrupted run resumes with the same command. Progress is written to `exports/media-migration/upload-status.json` and `upload-batched.log` (both gitignored).
+
+```powershell
 # 2. Build the current link inventory and rewrite plan (read-only).
 node scripts/migrate-media-to-hf.mjs inventory
 
