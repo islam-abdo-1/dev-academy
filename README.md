@@ -173,16 +173,20 @@ See [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
 ### Encrypted off-site backup
 
-`scripts/backup-offsite.mjs` dumps the `public`, `auth`, and `storage` schemas, downloads all legacy Supabase `media` objects, records the public Hugging Face dataset inventory, creates an encrypted 7z archive (`-mhe=on`), writes a SHA256 file, copies the archive to OneDrive, and prunes backups older than 14 days.
+`scripts/backup-offsite.mjs` dumps the `public`, `auth`, and `storage` schemas, copies all legacy Supabase `media` objects from a persistent cache, records the public Hugging Face dataset inventory, creates an encrypted 7z archive (`-mhe=on`), writes a SHA256 file, copies the archive to OneDrive, and prunes backups older than 14 days.
 
 ```powershell
 # from the repository root, after filling root .env
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-backup-offsite.ps1
 ```
 
-If the direct database host resolves IPv6-only (`db.<ref>.supabase.co`), set `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT=5432`, and `SUPABASE_DB_USER=postgres.<ref>` to the Supabase session pooler values shown in Dashboard → Connect.
+Media objects are cached once in `exports/backups/.media-cache/` (gitignored) with a size/etag manifest. Later runs reuse the cache and only download new or changed objects. Downloads are written to a `.part` file and renamed on success, so an interrupted run never leaves a truncated object behind; each download is retried three times and each object is checked against its Storage-reported size. `BACKUP_RESUME=0` forces a full re-download. The database dump is verified with `pg_restore --list` before the archive is created, and staging directories left by interrupted runs are pruned after two days.
 
-The Windows task `DevAcademy Offsite Backup` runs the wrapper daily at 12:00 and requires an active user session. It sets `BACKUP_INCLUDE_HF=0`; the 144-file public HF dataset is inventoried but not re-downloaded. Set `BACKUP_INCLUDE_HF=1` for a manual full-media copy. PITR is not available on the current plan; keep the daily archive and verify restores periodically.
+The wrapper retries the whole backup once after five minutes. If the direct database host resolves IPv6-only (`db.<ref>.supabase.co`), set `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT=5432`, and `SUPABASE_DB_USER=postgres.<ref>` to the Supabase session pooler values shown in Dashboard → Connect.
+
+The Windows task `DevAcademy Offsite Backup` runs the wrapper daily at 12:00, starts when the machine becomes available, and requires an active user session. It sets `BACKUP_INCLUDE_HF=0`; the 144-file public HF dataset is inventoried but not re-downloaded. Set `BACKUP_INCLUDE_HF=1` for a manual full-media copy. PITR is not available on the current plan; keep the daily archive and verify restores periodically.
+
+The Windows task `DevAcademy Backup Check` runs `scripts/check-backup-freshness.ps1` daily at 20:00 and fails if the newest OneDrive archive is older than 36 hours. On failure it writes `C:\Users\islam\OneDrive\DevAcademyBackups\BACKUP-ALERT.txt`; the alert is removed automatically on the next successful check. Results are appended to `exports/backups/backup-check.log`.
 
 ### Turnstile
 

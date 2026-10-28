@@ -5,9 +5,11 @@ import { createReadStream, createWriteStream } from "node:fs";
 import os from "node:os";
 import {
   copyFile,
+  link,
   mkdir,
   readFile,
   readdir,
+  rename,
   rm,
   stat,
   writeFile,
@@ -21,9 +23,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BACKUP_ROOT = path.join(ROOT, "exports", "backups");
 const DEFAULT_ONEDRIVE = "C:\\Users\\islam\\OneDrive\\DevAcademyBackups";
 const DEFAULT_PG_DUMP = "C:\\Users\\islam\\Tools\\pgsql17\\bin\\pg_dump.exe";
+const DEFAULT_PG_RESTORE = "C:\\Users\\islam\\Tools\\pgsql17\\bin\\pg_restore.exe";
 const DEFAULT_7ZR = "C:\\Users\\islam\\Tools\\7zr.exe";
 const DEFAULT_CURL = "C:\\Windows\\System32\\curl.exe";
 const RETENTION_DAYS = 14;
+const MEDIA_CACHE = path.join(BACKUP_ROOT, ".media-cache");
 
 function loadEnv(text) {
   const env = {};
@@ -72,17 +76,26 @@ async function hashFile(filePath) {
 }
 
 async function download(url, headers, destination) {
-  const res = await fetch(url, { headers, redirect: "follow" });
-  if (!res.ok || !res.body) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`download failed ${res.status} ${url} ${detail.slice(0, 200)}`);
-  }
+  const part = `${destination}.part`;
   await mkdir(path.dirname(destination), { recursive: true });
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(destination));
+  try {
+    const res = await fetch(url, { headers, redirect: "follow" });
+    if (!res.ok || !res.body) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`download failed ${res.status} ${url} ${detail.slice(0, 200)}`);
+    }
+    await pipeline(Readable.fromWeb(res.body), createWriteStream(part));
+    await rm(destination, { force: true });
+    await rename(part, destination);
+  } catch (error) {
+    await rm(part, { force: true }).catch(() => {});
+    throw error;
+  }
 }
 
 async function downloadCurl(url, headers, destination) {
   await mkdir(path.dirname(destination), { recursive: true });
+  const part = `${destination}.part`;
   const args = [
     "-L",
     "--fail",
@@ -111,7 +124,7 @@ async function downloadCurl(url, headers, destination) {
         args.push("-H", `${name}: ${value}`);
       }
     }
-    args.push("-o", destination, url);
+    args.push("-o", part, url);
     await new Promise((resolve, reject) => {
       const child = spawn(process.env.CURL_BIN || DEFAULT_CURL, args, {
         windowsHide: true,
@@ -121,22 +134,69 @@ async function downloadCurl(url, headers, destination) {
         stderr = `${stderr}${chunk}`.slice(-1000);
       });
       child.on("error", reject);
-      child.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`curl failed ${code} ${stderr.slice(0, 300)}`));
+      child.on("close", async (code) => {
+        if (code === 0) {
+          try {
+            await rm(destination, { force: true });
+            await rename(part, destination);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        } else {
+          await rm(part, { force: true }).catch(() => {});
+          reject(new Error(`curl failed ${code} ${stderr.slice(0, 300)}`));
+        }
       });
     });
+  } catch (error) {
+    await rm(part, { force: true }).catch(() => {});
+    throw error;
   } finally {
     if (headerFile) await rm(headerFile, { force: true });
   }
 }
 
 async function shouldReuse(destination, expectedSize) {
-  if (process.env.BACKUP_RESUME !== "1" || !Number.isFinite(expectedSize)) {
+  if (process.env.BACKUP_RESUME === "0" || !Number.isFinite(expectedSize)) {
     return false;
   }
   const info = await stat(destination).catch(() => null);
   return Boolean(info && info.size === expectedSize);
+}
+
+async function withRetry(label, attempts, fn) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) break;
+      const delay = Math.min(2000 * 2 ** (attempt - 1), 15000);
+      logLine(`${label} attempt ${attempt} failed: ${error.message}; retrying in ${delay}ms`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
+async function readJson(filePath, fallback) {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+async function linkOrCopy(source, destination) {
+  await mkdir(path.dirname(destination), { recursive: true });
+  await rm(destination, { force: true });
+  try {
+    await link(source, destination);
+  } catch {
+    await copyFile(source, destination);
+  }
 }
 
 function allocateStoredPath(used, originalPath) {
@@ -203,7 +263,12 @@ async function listSupabaseObjects(bucket, prefix = "") {
       if (row.id === null) {
         result.push(...(await listSupabaseObjects(bucket, fullPath)));
       } else {
-        result.push({ path: fullPath, size: row.metadata?.size ?? null });
+        result.push({
+          path: fullPath,
+          size: row.metadata?.size ?? null,
+          etag: row.metadata?.eTag ?? null,
+          updatedAt: row.updated_at ?? null,
+        });
       }
     }
     if (rows.length < 1000) break;
@@ -214,6 +279,9 @@ async function listSupabaseObjects(bucket, prefix = "") {
 
 async function backupSupabaseMedia(staging, records) {
   const destRoot = path.join(staging, "supabase-media");
+  const cacheRoot = MEDIA_CACHE;
+  const manifestPath = path.join(cacheRoot, "manifest.json");
+  const manifest = await readJson(manifestPath, {});
   const used = new Map();
   const objects = await listSupabaseObjects("media");
   logLine(`supabase media objects=${objects.length}`);
@@ -222,21 +290,44 @@ async function backupSupabaseMedia(staging, records) {
     storedPath: allocateStoredPath(used, object.path),
   }));
   const concurrency = Math.max(1, Number(process.env.BACKUP_MEDIA_CONCURRENCY) || 6);
+  let reused = 0;
   const results = await runPool(jobs, concurrency, async (object) => {
+    const cachePath = safeJoin(cacheRoot, object.storedPath);
     const destination = safeJoin(destRoot, object.storedPath);
-    const url = `${process.env.SUPABASE_URL}/storage/v1/object/authenticated/media/${encodePath(object.path)}`;
-    if (!(await shouldReuse(destination, Number(object.size)))) {
-      await download(
-        url,
-        {
-          apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        destination
+    const expectedSize = Number(object.size);
+    const cached = manifest[object.path];
+    const sizeMatches = await shouldReuse(cachePath, expectedSize);
+    const etagMatches =
+      !cached?.etag || !object.etag || cached.etag === object.etag;
+    if (sizeMatches && etagMatches) {
+      reused += 1;
+    } else {
+      const url = `${process.env.SUPABASE_URL}/storage/v1/object/authenticated/media/${encodePath(object.path)}`;
+      await withRetry(`download ${object.path}`, 3, () =>
+        download(
+          url,
+          {
+            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          cachePath
+        )
       );
     }
-    const info = await stat(destination);
-    const digest = await hashFile(destination);
+    const info = await stat(cachePath);
+    if (Number.isFinite(expectedSize) && info.size !== expectedSize) {
+      throw new Error(
+        `size mismatch for ${object.path}: expected ${expectedSize}, got ${info.size}`
+      );
+    }
+    manifest[object.path] = {
+      storedPath: object.storedPath,
+      size: info.size,
+      etag: object.etag || null,
+      updatedAt: object.updatedAt || null,
+    };
+    await linkOrCopy(cachePath, destination);
+    const digest = await hashFile(cachePath);
     return {
       path: object.path,
       storedPath: object.storedPath,
@@ -244,6 +335,11 @@ async function backupSupabaseMedia(staging, records) {
       digest,
     };
   });
+  await mkdir(cacheRoot, { recursive: true });
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  logLine(
+    `supabase media reused=${reused} downloaded=${jobs.length - reused}`
+  );
   results.sort((left, right) => left.path.localeCompare(right.path));
   const inventory = results.map(
     (row) => `${row.path}\t${row.storedPath}\t${row.size}\t${row.digest}`
@@ -361,6 +457,16 @@ async function dumpDatabase(staging, records) {
   if (result.status !== 0) {
     throw new Error(`pg_dump failed: ${result.stderr?.slice(0, 500)}`);
   }
+  const restoreResult = spawnSync(
+    process.env.PG_RESTORE_BIN || DEFAULT_PG_RESTORE,
+    ["--list", dumpPath],
+    { encoding: "utf8" }
+  );
+  if (restoreResult.status !== 0) {
+    throw new Error(
+      `pg_restore --list failed: ${restoreResult.stderr?.slice(0, 500)}`
+    );
+  }
   const info = await stat(dumpPath);
   records.database = { bytes: info.size };
 }
@@ -426,9 +532,24 @@ async function pruneOld(folder, log) {
   }
 }
 
+async function pruneIncomplete(folder, log) {
+  const entries = await readdir(folder, { withFileTypes: true }).catch(() => []);
+  const cutoff = Date.now() - 2 * 86400000;
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !/^\d{8}_\d{6}$/.test(entry.name)) continue;
+    const fullPath = path.join(folder, entry.name);
+    const info = await stat(fullPath).catch(() => null);
+    if (!info || info.mtimeMs >= cutoff) continue;
+    const archive = path.join(folder, `dev-academy-${entry.name}.7z`);
+    if (await stat(archive).catch(() => null)) continue;
+    await rm(fullPath, { recursive: true, force: true });
+    log(`pruned incomplete ${fullPath}`);
+  }
+}
+
 async function main() {
   const env = loadEnv(await readFile(path.join(ROOT, ".env"), "utf8"));
-  process.env = { ...process.env, ...env };
+  process.env = { ...env, ...process.env };
   const required = [
     "SUPABASE_URL",
     "SUPABASE_PROJECT_REF",
@@ -457,6 +578,7 @@ async function main() {
 
   try {
     log("backup started");
+    await pruneIncomplete(BACKUP_ROOT, log);
     await dumpDatabase(staging, records);
     log(`database bytes=${records.database.bytes}`);
     await backupSupabaseMedia(staging, records);
