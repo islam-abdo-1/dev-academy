@@ -221,7 +221,8 @@ async function backupSupabaseMedia(staging, records) {
     ...object,
     storedPath: allocateStoredPath(used, object.path),
   }));
-  const results = await runPool(jobs, 6, async (object) => {
+  const concurrency = Math.max(1, Number(process.env.BACKUP_MEDIA_CONCURRENCY) || 6);
+  const results = await runPool(jobs, concurrency, async (object) => {
     const destination = safeJoin(destRoot, object.storedPath);
     const url = `${process.env.SUPABASE_URL}/storage/v1/object/authenticated/media/${encodePath(object.path)}`;
     if (!(await shouldReuse(destination, Number(object.size)))) {
@@ -335,11 +336,11 @@ async function dumpDatabase(staging, records) {
   const dumpPath = path.join(staging, "dev-academy.dump");
   const args = [
     "--host",
-    `db.${process.env.SUPABASE_PROJECT_REF}.supabase.co`,
+    process.env.SUPABASE_DB_HOST || `db.${process.env.SUPABASE_PROJECT_REF}.supabase.co`,
     "--port",
-    "5432",
+    process.env.SUPABASE_DB_PORT || "5432",
     "--username",
-    "postgres",
+    process.env.SUPABASE_DB_USER || "postgres",
     "--dbname",
     "postgres",
     "--schema=public",
