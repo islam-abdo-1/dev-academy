@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App (typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      # Placeholders only; the CI check validates compilation, not runtime config.
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-placeholder
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+      VITE_GOOGLE_API_KEY: ci-placeholder
+      VITE_HF_UPLOAD_WORKER_URL: https://example.workers.dev
+      VITE_TURNSTILE_SITE_KEY: ""
+      VITE_ENABLE_LEGACY_LOGIN: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-dist
+          path: app/dist
+          retention-days: 7
+
+  worker:
+    name: Upload worker (typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/hf-upload
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/hf-upload/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck

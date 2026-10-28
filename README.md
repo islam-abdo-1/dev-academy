@@ -143,8 +143,17 @@ Cloudflare Pages settings:
 - Root directory: `app`
 - Build command: `npm run build`
 - Output directory: `dist`
-- Add the `VITE_*` environment variables in the Pages dashboard.
+- Build-time `VITE_*` values come from `app/.env` (gitignored) and are baked into the bundle.
+- The Pages dashboard holds the runtime variables used by the Pages Function (`HF_*`, `SUPABASE_*`, `ALLOWED_ORIGINS`); it does not need the `VITE_*` values while deploys are manual.
 - Production uses `VITE_ENABLE_LEGACY_LOGIN=false`; `/legacy-login` redirects to `/login`. The route remains `noindex, nofollow` and unlinked. Do not re-enable it unless the Email provider is also re-enabled deliberately.
+
+### Deploying (manual, clean commit only)
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1
+```
+
+The script refuses to deploy when the working tree is dirty or the branch is not `master`, runs typecheck and build, and records the commit hash on the Pages deployment. The Pages project's production branch is `main`; the repository branch is `master`.
 
 Security headers live in `app/public/_headers`. SPA fallbacks are limited to `/s/*` → `/app-shell` and `/dashboard/subjects/*` → `/dashboard-shell`; legacy `/admin/*` paths 301 to their `/dashboard/*` equivalents, and unknown paths return the static `404.html`.
 
