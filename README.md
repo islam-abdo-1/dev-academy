@@ -23,12 +23,13 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 
 ## Features
 
+- **Google-only sign-in** — public login uses Google OAuth; there is no public email/password signup, password reset, or email invitation flow.
 - **Structured catalog** — AI and Cybersecurity majors, four academic years, two semesters each, subjects, chapters, sections, and materials.
 - **In-browser previews** — PDF, images, video, audio, text/code, interactive HTML (isolated sandbox), Office documents, Google Drive, YouTube, and archives.
 - **Personal library** — upload private files, organize saved items into lists, and download or share.
 - **Public sharing** — revocable view/download links for single files or whole lists.
 - **Publishing workflow** — students submit personal files for review; staff approve and publish into the official catalog.
-- **Staff dashboard** — subjects, resources, team roles, publish requests, and storage administration.
+- **Staff dashboard** — subjects, resources, team roles, publish requests, and storage administration. Members must sign in with Google before an admin can assign their role.
 - **Arabic RTL UI** — responsive layout, dark theme, accessible keyboard navigation.
 - **Storage split** — Supabase for auth/DB/legacy media/avatars; Hugging Face private bucket (through a Cloudflare Worker and same-origin Pages Function) for personal study files, with per-user quotas and reservation-based accounting.
 - **Privacy-friendly analytics** — Cloudflare Web Analytics for visitors plus an in-app admin summary for registered users and daily activity.
@@ -41,7 +42,7 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 | Auth / Database | Supabase Auth + Postgres with Row Level Security |
 | File storage | Supabase Storage (legacy media/avatars), Hugging Face private bucket via Cloudflare Worker + Pages Function |
 | Edge API | Cloudflare Workers (`workers/hf-upload`) with `aws4fetch` |
-| Email | Supabase Edge Function (`db/functions/invite-user`) |
+| Email | Supabase Email provider disabled; Google OAuth only (legacy break-glass disabled in production) |
 | Hosting | Cloudflare Pages |
 | Analytics | Cloudflare Web Analytics |
 
@@ -58,7 +59,7 @@ app/                    React/Vite frontend
     pages/              public and dashboard routes
 db/
   migrations/           ordered SQL migrations (schema, RLS, RPCs)
-  functions/invite-user Supabase Edge Function
+  functions/invite-user legacy email function (not called by the public flow)
 workers/hf-upload/      signed Hugging Face upload/delete Worker
 scripts/                seed, migration apply, export helpers
 brand/                  logo source
@@ -85,8 +86,9 @@ Copy examples only; never commit real values.
 - `app/.env.example`
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
-  - `VITE_TURNSTILE_SITE_KEY` (required when Supabase Auth captcha is enabled)
+  - `VITE_TURNSTILE_SITE_KEY` (used by the legacy break-glass login)
   - `VITE_HF_UPLOAD_WORKER_URL`
+  - `VITE_ENABLE_LEGACY_LOGIN` (default `false`; production is disabled and `/legacy-login` redirects to `/login`)
 - `workers/hf-upload/.dev.vars.example`
   - `HF_ACCESS_KEY_ID`
   - `HF_SECRET_ACCESS_KEY`
@@ -142,11 +144,13 @@ Cloudflare Pages settings:
 - Build command: `npm run build`
 - Output directory: `dist`
 - Add the `VITE_*` environment variables in the Pages dashboard.
+- Production uses `VITE_ENABLE_LEGACY_LOGIN=false`; `/legacy-login` redirects to `/login`. The route remains `noindex, nofollow` and unlinked. Do not re-enable it unless the Email provider is also re-enabled deliberately.
 
 Security headers live in `app/public/_headers`. SPA fallbacks are limited to `/s/*` → `/app-shell` and `/dashboard/subjects/*` → `/dashboard-shell`; legacy `/admin/*` paths 301 to their `/dashboard/*` equivalents, and unknown paths return the static `404.html`.
 
 ## Security
 
+- Public authentication is Google OAuth only. `/legacy-login` is disabled in production (`VITE_ENABLE_LEGACY_LOGIN=false`), redirects to `/login`, and remains unlinked/noindex as source-level fallback.
 - Row Level Security is enabled on application tables; staff-only RPCs verify roles server-side.
 - The browser never receives service-role or Hugging Face secrets.
 - File uploads validate size, MIME type, and extension; object paths are user-scoped and canonicalized.
@@ -167,11 +171,19 @@ See [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-backup-offsite.ps1
 ```
 
+If the direct database host resolves IPv6-only (`db.<ref>.supabase.co`), set `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT=5432`, and `SUPABASE_DB_USER=postgres.<ref>` to the Supabase session pooler values shown in Dashboard → Connect.
+
 The Windows task `DevAcademy Offsite Backup` runs the wrapper daily at 12:00 and requires an active user session. It sets `BACKUP_INCLUDE_HF=0`; the 144-file public HF dataset is inventoried but not re-downloaded. Set `BACKUP_INCLUDE_HF=1` for a manual full-media copy. PITR is not available on the current plan; keep the daily archive and verify restores periodically.
 
 ### Turnstile
 
-Supabase Auth captcha is enforced with the Turnstile widget `Dev Academy Auth`. The site key is public and belongs in `app/.env`; the secret belongs only in Supabase Auth settings and the root local `.env`.
+Supabase Auth captcha is configured with the Turnstile widget `Dev Academy Auth`. The site key is public and belongs in `app/.env`; the secret belongs only in Supabase Auth settings and the root local `.env`. The public Google button does not use Turnstile, and the legacy email/password page is disabled in production.
+
+### Google-only cutover
+
+Production is strict Google-only (Pages deployment `6db47b49`): `VITE_ENABLE_LEGACY_LOGIN=false`, Supabase `external.email=false` / `external.google=true`, and `/legacy-login` redirects to `/login`. A full Google OAuth login as a `super_admin` was verified after the cutover.
+
+Six non-Google accounts were retired in place by explicit decision; their rows, roles, and data were not deleted. Five use Gmail and can self-link through Google later. `admin@devacademy.dev` owns 7 subjects, 18 lectures, and 6 resources that remain manageable by other staff. Re-enabling the Email provider would require a deliberate rollback of both Supabase Auth and the build flag.
 
 ## Roadmap
 

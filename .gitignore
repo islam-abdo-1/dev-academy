@@ -16,6 +16,7 @@ Thumbs.db
 ACCOUNTS-CREDENTIALS.txt
 
 # Local QA evidence (not shipped)
+/app/inspect-*
 /qa-*.png
 /prod-*.jpeg
 /desktop-about.jpeg

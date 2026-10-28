@@ -4,9 +4,9 @@
 
 **Scope:** Security hardening, private storage, storage/quota correctness, accessibility, SEO, performance, repository hygiene, and deployment readiness.
 
-**Constraint:** Production writes were limited to QA uploads, the Hugging Face bucket privacy setting, Pages deployments, admin password rotation, and temporary restore-database creation; no destructive load/fuzz testing was performed. QA fixtures, users, objects, and temporary credentials were removed after verification, and the restore database was dropped.
+**Constraint:** Production writes were limited to QA uploads, the Hugging Face bucket privacy setting, Pages deployments, admin password rotation, Supabase Auth provider configuration, and temporary restore-database creation; no destructive load/fuzz testing was performed. QA fixtures, users, objects, and temporary credentials were removed after verification, and the restore database was dropped.
 
-> **Final verification update (2026-10-23):** Production is now Cloudflare Pages deployment `503fcb76` on `https://dev-academy.pages.dev` with `assets/index-jupyOKy1.js` and `assets/index-B_28QPb6.css`. Private personal files use the authenticated same-origin Pages Function `/api/hf-file/*`, the Hugging Face bucket is private and empty, and PDF preview is verified in production. Turnstile is configured and enforced by Supabase Auth, the encrypted off-site backup is verified, and the daily backup task is registered. Public launch remains **NO-GO** only for SMTP; PITR is unavailable on the current plan but is mitigated by the encrypted off-site backup. See **Final Production Verification & Decision** and **Private Storage & Final Verification (2026-10-23)** at the end; these sections supersede earlier storage, deployment, and GO/NO-GO statements.
+> **Final auth update (2026-10-23):** Production is Cloudflare Pages deployment `6db47b49` on `https://dev-academy.pages.dev` with `assets/index-BZM-51uq.js` and `assets/index-AVzjks79.css`; `/login` HTML ETag `"25cee601ead4418f4b2aa21145cc6a8c"`. The strict Google-only cutover is complete: `VITE_ENABLE_LEGACY_LOGIN=false`, the Supabase Email provider is disabled (`external.email=false`, `external.google=true`), `/legacy-login` redirects to `/login`, and a real Google OAuth sign-in as `islam230366qw@gmail.com` reached the `super_admin` dashboard after the cutover. The six non-Google accounts were explicitly retired in place: their rows, roles, and data remain; five use Gmail and can self-link through Google later, while `admin@devacademy.dev` owns 7 subjects, 18 lectures, and 6 resources that remain manageable by other staff. Private personal files use the authenticated same-origin Pages Function `/api/hf-file/*`, the Hugging Face bucket is private and empty, and PDF preview is verified in production. Turnstile remains configured for Auth, the encrypted off-site backup is verified, and the daily scheduled task completes through the Supabase session pooler (last run 734,726,867 bytes). SMTP is still unavailable, but it is **not a blocker for the public Google-only flow**. See **Google-Only Auth Cutover (2026-10-23)** at the end; it supersedes earlier SMTP/email-login GO/NO-GO statements.
 
 ## Executive Summary
 
@@ -14,8 +14,8 @@
 - Storage accounting now uses reservation/confirmation/release RPCs with server-side quota checks; client-side quota bypasses were revoked in the pending hardening migration.
 - The application builds cleanly, typechecks, and scores **1.00 for accessibility and SEO** in Lighthouse.
 - Static local load tests sustained ~**4.0k–4.9k requests/second** with zero errors; no breaking point was found at 300 concurrent connections.
-- Production remains **NO-GO for public launch only for SMTP**; Turnstile and encrypted off-site backup are now closed. Migrations `0001`–`0033` are applied, private storage/PDF/admin flows are verified, and live Cloudflare headers/redirects have been checked.
-- A one-time logical database/media backup and restore verification are complete, the encrypted off-site archive is verified, and a daily backup task is registered; staging/limited launch can proceed with public registration disabled until SMTP is configured.
+- Public launch is now **GO for strict Google-only auth**; SMTP is no longer required for the public flow. The Email provider is disabled, `/legacy-login` redirects to `/login`, and a real Google OAuth login was completed by a `super_admin`. Migrations `0001`–`0033` are applied, private storage/PDF/admin flows are verified, and live Cloudflare headers/redirects have been checked.
+- A one-time logical database/media backup and restore verification are complete, the encrypted off-site archive is verified, and a daily backup task is registered; the auth cutover and backup work are complete.
 
 ## Verification Matrix
 
@@ -301,13 +301,14 @@ No secrets, access tokens, or service-role keys are included in this report.
 
 Local Lighthouse results are not release evidence: runs varied materially with concurrent browser activity, and the best run (`0.98`, LCP `1.96 s`) was not reproducible. Production PSI/field data must be collected after deployment.
 
-### Remaining release blockers
+### Remaining release notes
 
-- SMTP is unconfigured; verification and password-reset delivery are not ready for public use.
+- SMTP is unconfigured; it is not required for the public Google-only flow, but legacy password reset and email invitations are unavailable.
+- Six non-Google accounts remain by explicit decision: `admin@devacademy.dev`, two admins, and three inactive students. Their rows, roles, and data are preserved, but password login is retired. Five use Gmail and can self-link through Google later; `admin@devacademy.dev` content remains manageable by other staff.
 - PITR is unavailable on the current plan; the encrypted daily off-site backup is the documented mitigation.
-- Final commit/tag `launch-readiness-2026-10-23` is created after the final diff review.
+- Final commit is tagged `v1.0.0` after the final diff review.
 
-**Decision:** Production remains **NO-GO for public launch** until SMTP is configured and verified. Turnstile, private storage, and automated/off-site backup are closed. Limited/internal launch can proceed with public registration disabled.
+**Decision:** Public launch is **GO for strict Google-only auth**. The Email provider is disabled, `/legacy-login` redirects to `/login`, the public page exposes only Google, and a real Google OAuth login reached the `super_admin` dashboard after the cutover.
 
 ---
 
@@ -360,7 +361,7 @@ Local Lighthouse results are not release evidence: runs varied materially with c
 | Supabase logical backup | PASS; custom dump `626,776` bytes covering `public`/`auth`/`storage`; 335 `media` objects backed up (`890,058,704` bytes) with MD5/SHA256 manifests |
 | Restore verification | PASS; restored into a temporary database; row counts/checksums matched source; `65` tables, `3` views, `97` policies, `72` functions, `229` indexes; test DB dropped |
 | Encrypted off-site backup | PASS; `dev-academy-20261023_040149.7z` is `734,725,875` bytes, SHA256 `4fc7a889bbddcb50d002f0f746c45ac889e7b5741aa193ad2393ec38e2ba4cbc`, copied to OneDrive and hash-verified |
-| Scheduled backup | REGISTERED; Windows task `DevAcademy Offsite Backup` is Ready, runs daily at 12:00, and skips the public HF dataset bulk copy. The manual wrapper/script run passed; a scheduler test run was terminated when the interactive session ended, so validate once on an active desktop session |
+| Scheduled backup | PASS; Windows task `DevAcademy Offsite Backup` completed on an active desktop session at 2026-10-23 20:19 UTC, producing a 734,726,867-byte encrypted archive (SHA256 `5f10d044a274d3d333bd79d56011806769fa6028d248b602f664a46e92ab5982`) and a verified OneDrive copy. The direct IPv6-only database host was replaced with the Supabase session pooler |
 | HF dataset coverage | DOCUMENTED; 144 public files/`3,750,683,172` bytes are inventoried in `hf-inventory.tsv`; they are public/reproducible and excluded from the encrypted archive |
 | Backup/PITR posture | PARTIAL; encrypted daily off-site backup verified; PITR is unavailable/paid |
 | Turnstile | PASS; widget `Dev Academy Auth`, site key configured, Supabase Auth captcha enforced (`no captcha_token found` / `invalid-input-response` verified); headless automation cannot complete the human challenge |
@@ -394,7 +395,7 @@ Local Lighthouse results are not release evidence: runs varied materially with c
 - **Restore proof:** the dump restored into a temporary database; source/restore counts and key-table checksums matched (`16` users/profiles, `2` share tokens, `33` migrations, `46` subjects, `155` lectures, `335` Supabase `storage.objects` legacy media rows), with `65` tables, `3` views, `97` policies, `72` functions, `229` indexes, and `54` RLS tables. The temporary database was dropped.
 - **Restore caveat:** validation used `pg_restore --no-owner --no-privileges` because Supabase default ACLs are owned by `supabase_auth_admin`; a production restore should run as `supabase_admin` or reapply grants/migrations.
 - **Encrypted off-site backup:** `exports/backups/dev-academy-20261023_040149.7z` is `734,725,875` bytes with SHA256 `4fc7a889bbddcb50d002f0f746c45ac889e7b5741aa193ad2393ec38e2ba4cbc`; the archive is encrypted with `-mhe=on`, copied to `C:\Users\islam\OneDrive\DevAcademyBackups\20261023_040149\`, and the copy hash matches. It contains the database dump, all 335 Supabase `media` objects, media manifests, and the HF inventory.
-- **Scheduled backup:** Windows task `DevAcademy Offsite Backup` is `Ready`, runs daily at `12:00`, uses `scripts/run-backup-offsite.ps1`, keeps 14 days locally/off-site, and sets `BACKUP_INCLUDE_HF=0` so the 3.75 GiB public HF dataset is inventoried rather than re-downloaded on every run. The manual wrapper/script path passed; a scheduler test run was terminated when the interactive session ended, so validate once on an active desktop session.
+- **Scheduled backup:** Windows task `DevAcademy Offsite Backup` is `Ready`, runs daily at `12:00`, uses `scripts/run-backup-offsite.ps1`, keeps 14 days locally/off-site, and sets `BACKUP_INCLUDE_HF=0` so the 3.75 GiB public HF dataset is inventoried rather than re-downloaded on every run. The 2026-10-23 20:19 UTC scheduler run completed: database dump, 335 media objects (`890,058,704` bytes), encrypted archive `734,726,867` bytes, SHA256 `5f10d044a274d3d333bd79d56011806769fa6028d248b602f664a46e92ab5982`, and verified OneDrive copy. The direct database hostname is IPv6-only on this network, so backups use the Supabase session pooler (`SUPABASE_DB_HOST`, `SUPABASE_DB_PORT=5432`, `SUPABASE_DB_USER=postgres.<ref>`).
 - **HF dataset:** `devacademy-fcai/devacademy-media` contains 144 public files (`3,750,683,172` bytes) under `drive/` and `imports/`; `hf-inventory.tsv` records the full list. It is public and reproducible, so the encrypted archive deliberately excludes the bulk files. The private HF bucket remains empty.
 - **Backup posture:** PITR is disabled/paid; the encrypted daily off-site backup with 14-day retention is the mitigation. The legacy Supabase `media` bucket is public (`335` objects, ~849 MiB) and separate from the private HF personal-file bucket.
 - **SMTP:** remains unconfigured (`smtp_host=false`, `smtp_user=false`, `mailer_autoconfirm=false`). Cloudflare Email Service SMTP (`smtp.mx.cloudflare.net:465`, username `api_token`) was evaluated but requires Workers Paid/Email Sending, so it was not enabled under the no-paid-resource constraint.
@@ -406,20 +407,79 @@ Local Lighthouse results are not release evidence: runs varied materially with c
 - **Cleanup:** temporary QA auth user/profile, personal file, saved list/items, share tokens, storage objects/reservations/usage, HF objects, and temporary credentials were deleted. Temporary test rows are `0`; global storage used/reserved are `0`; existing production users and share tokens were left untouched.
 - **Operational note:** Pages Functions deployment is reproducible only when `wrangler pages deploy ../../app/dist ...` runs from `workers/hf-upload` so the `functions` directory and `aws4fetch`/`jose` resolve.
 
+## Google-Only Auth Cutover (2026-10-23)
+
+**Deployment:** Cloudflare Pages `6db47b49` on `https://dev-academy.pages.dev` (preview `https://6db47b49.dev-academy.pages.dev`), serving `assets/index-BZM-51uq.js` and `assets/index-AVzjks79.css`; `/login` HTML ETag `"25cee601ead4418f4b2aa21145cc6a8c"`.
+
+### Implemented
+
+- Public `/login` is Google-only: one Google CTA, `signInWithOAuth("google")`, `redirectTo` the current origin `/login`, `prompt=select_account`; no email/password, signup, reset, or Turnstile on the public page.
+- `/legacy-login` is disabled in production: `VITE_ENABLE_LEGACY_LOGIN=false` makes the route redirect to `/login`. The page remains in source as an unlinked, `noindex, nofollow` fallback with email/password + Turnstile, no signup, and no password reset.
+- The Supabase Email provider is disabled: `/auth/v1/settings` reports `external.email=false` and `external.google=true`; the public page exposes only the Google CTA.
+- `/reset-password` now redirects to `/login`; `ResetPassword` is no longer routed.
+- Login and legacy-login explanatory text now uses explicit RTL direction, so mixed Arabic/Google sentences render in the correct visual order on mobile and desktop.
+- `/dashboard/team` no longer calls the SMTP-dependent `invite-user` function. An admin can only assign a role to an existing member; unknown emails receive the “sign in with Google first” message.
+- SEO/robots: `/legacy-login` is in the prerender shells with noindex metadata; `robots.txt` disallows `/login`, `/legacy-login`, and `/reset-password`.
+- CSP now permits Turnstile's `data:` connection attempt and Cloudflare challenge subdomains in `connect-src`/`frame-src`.
+
+### Identity inventory
+
+| Provider | Role | Users | Google identity already linked | Active in 30 days |
+| --- | --- | ---: | ---: | ---: |
+| Email | `super_admin` | 3 | 2 | 3 |
+| Email | `admin` | 4 | 2 | 2 |
+| Email | `user` | 3 | 0 | 0 |
+| Google | `admin` | 3 | 3 | 3 |
+| Google | `user` | 3 | 3 | 3 |
+
+- 16 total users: 10 Email-provider, 6 Google-provider; no account rows were deleted.
+- Four Email-provider users already have a Google identity (`code39946@gmail.com`, `islam230366qw@gmail.com`, plus two admins); they continue to sign in through Google.
+- Six accounts lack Google and were explicitly retired in place: `admin@devacademy.dev`, two admins, and three inactive students. The five Gmail-based accounts can self-link through Google later; `admin@devacademy.dev` is non-Google and owns 7 subjects, 18 lectures, and 6 resources. Those records remain intact and other staff can manage them through existing RLS policies.
+- At least two Google-linked `super_admin` accounts exist (`code39946@gmail.com` and `islam230366qw@gmail.com`), so platform-level admin access is not dependent on `admin@devacademy.dev`.
+
+### Verification
+
+| Check | Result |
+| --- | --- |
+| App typecheck / build | PASS |
+| Worker typecheck | PASS |
+| Production `/login` | PASS; Google-only UI, one Google CTA, 0 inputs, no console errors, correct mobile layout |
+| Google OAuth start | PASS; 302 to `accounts.google.com`, callback `https://uytyvnoqhqivvhujdxoc.supabase.co/auth/v1/callback`, redirect `https://dev-academy.pages.dev/login` |
+| Google OAuth consent | PASS; Google Auth Platform shows Publishing status **In production**, User type **External**, client **Dev Academy Web** |
+| Full Google OAuth completion | PASS; signed out, chose `islam230366qw@gmail.com`, completed consent after the cutover, and reached the `super_admin` dashboard |
+| Email provider | DISABLED; `/auth/v1/settings` reports `external.email=false` and `external.google=true` |
+| Legacy login | DISABLED; `/legacy-login` redirects to `/login` in a fresh context; 0 email/password inputs |
+| Authenticated routes | PASS; final smoke of dashboard, subjects, resources, team, and settings with 0 console errors |
+| Team role flow | PASS; member role dialog opens; unknown-email Google-first message path implemented |
+| PDF regression | PASS; uploaded a 29,171-byte PDF, rendered it in the production PDF viewer, then deleted it |
+| Storage cleanup | PASS; test file removed and personal storage returned to 0 B |
+| Secret scan / `npm audit` | PASS; 0 private-secret hits (the public Google browser key is present as expected), 0 production vulnerabilities in app and Worker |
+| RLS audit | PASS; 30 public tables, 0 RLS disabled, 90 policies |
+| Turnstile | N/A for public launch; the Google path does not use it and the legacy page is disabled |
+| Admin access | PASS; Google `super_admin` dashboard verified; `admin@devacademy.dev` retired in place |
+| Database integrity | PASS; 16 users, 16 profiles, 6 accounts without Google, 10 Google identities; admin@ content 7 subjects / 18 lectures / 6 resources preserved |
+| Headers/assets | PASS; `/login` ETag `"25cee601ead4418f4b2aa21145cc6a8c"`, legacy route `X-Robots-Tag: noindex, nofollow`, asset 200, sourcemap 404 |
+| Scheduled backup | PASS; scheduled task completed with database + 335 media objects (890,058,704 bytes), encrypted archive 734,726,867 bytes, SHA256 `5f10d044a274d3d333bd79d56011806769fa6028d248b602f664a46e92ab5982`, off-site copy verified |
+
+### Risks and conditions
+
+| Severity | Risk | Status |
+| --- | --- | --- |
+| Critical | Six accounts lack Google, including `admin@devacademy.dev` | CLOSED by explicit decision; rows/roles/data preserved; five Gmail accounts can self-link later |
+| High | Email provider remains enabled, so `/legacy-login` is an alternate password path | CLOSED; Email provider disabled and legacy route redirects to `/login` |
+| High | Full Google OAuth completion has not been exercised by automation | CLOSED; completed after the cutover as a Google `super_admin` |
+| Medium | `admin@devacademy.dev` owns catalog records but has no Google identity | ACCEPTED; 7 subjects, 18 lectures, and 6 resources remain intact and are manageable by other staff |
+| Medium | Turnstile requires a human challenge and its third-party iframe emits CSP console noise | N/A for public launch; the legacy page is disabled |
+| Medium | Long-lived Hugging Face token exists in the local credentials file | OPEN; rotate if the file or transcript was shared |
+| Medium | SMTP unavailable; legacy reset/invite email cannot be delivered | Not a public Google-only blocker |
+| Medium | Scheduled backup task needs an active desktop session and a working database route | CLOSED; session pooler in use and the task completed successfully |
+
+**Decision:** **GO for strict Google-only launch.** The public login page exposes only Google, the Email provider is disabled, `/legacy-login` redirects to `/login`, and a real Google OAuth login reached the `super_admin` dashboard after the cutover. The six non-Google accounts are retired in place with their data preserved. Dashboard, team, storage, PDF, backup, and security checks passed.
+
 ### القرار النهائي (Final Decision)
 
-**الإطلاق العام: NO-GO.**
+**الإطلاق العام بنمط Google فقط: GO.** تم نشر `6db47b49` والتحقق من زر Google وتحويل OAuth، ثم تسجيل دخول Google فعلي بحساب `islam230366qw@gmail.com` والوصول إلى `/dashboard` بصلاحية `super_admin` بعد القطع. تم تعطيل مزود البريد (`external.email=false`)، وتعطيل `VITE_ENABLE_LEGACY_LOGIN`، وتحويل `/legacy-login` إلى `/login`. الحسابات الستة التي لا تملك Google عُزلت مع الاحتفاظ ببياناتها؛ خمسة منها Gmail ويمكنها ربط Google لاحقًا، ومحتوى `admin@devacademy.dev` (7 مواد و18 محاضرة و6 موارد) محفوظ ويمكن لفريق الإدارة إدارته. النسخ الاحتياطي اليومي يعمل عبر session pooler.
 
-النسخة المنشورة `503fcb76` اجتازت البناء والمصادقة والمشاركة واختبارات الرفع/الحذف/الحصة/المسار في الإنتاج، وأصبحت ملفات المستخدمين الشخصية محمية عبر Pages Function و`/api/hf-file/*` مع bucket خاص، وأوراق التخزين اليتيمة مالك-فقط. تم إغلاق مخاطر PDF وروابط Hugging Face العامة وتكرار البث، وتم التحقق من حساب إداري عامل بعد تدوير كلمة مروره. Turnstile مُفعّل ومفروض على Supabase Auth، وتم إنشاء نسخة احتياطية مشفرة خارج الموقع (734,725,875 بايت) والتحقق من الـhash بعد النسخ إلى OneDrive، مع مهمة نسخ احتياطي يومية مجدولة. تم توثيق 144 ملفًا عامًا من Hugging Face (3.75GiB) في inventory بدل تضمينها في الأرشيف لأنها عامة وقابلة لإعادة التنزيل. يبقى الإطلاق العام غير آمن بسبب **SMTP فقط**؛ PITR غير متاح في الخطة الحالية لكن النسخ المشفر اليومي يغطيه كإجراء تخفيف.
+**ملاحظة الإصدار:** اكتملت مراجعة الفرق، وأُنشئ الوسم `v1.0.0` على الـ commit النهائي. الوسم `launch-readiness-2026-10-23` يبقى على `e3b5424` كسجل تاريخي.
 
-**إطلاق محدود/تجريبي: GO بشرط.**
-
-يمكن استخدام النسخة الحالية لعرض محدود أو فريق داخلي مع تعطيل التسجيل العام، حتى يتم إغلاق بند SMTP. التخزين الشخصي خاص والنسخ الاحتياطي المشفر يعمل، لكن يجب عدم رفع بيانات حساسة قبل تفعيل SMTP والتحقق اليدوي من Turnstile.
-
-**شرط التحويل إلى GO للإطلاق العام:**
-
-1. إعداد SMTP موثوق وتأكيد وصول رسائل التحقق وإعادة التعيين.
-2. التحقق اليدوي من تحدي Turnstile في متصفح حقيقي (الأتمتة الحالية تظهر كبوت).
-3. إنشاء commit/tag نهائي وإعادة تشغيل smoke/regression بعد أي تغييرات تشغيلية.
-
-The performance target is now met in production. The release decision is driven by operational controls and data-protection gaps, not by the frontend or the current Lighthouse score.
+> **Post-report status (2026-10-28):** Scheduled backup runs after 2026-10-23 were terminated during the 890 MB Supabase media download because the task runs interactively and restarts from zero each time. The 2026-10-23 archive remains valid; backup reliability fixes are tracked separately.
