@@ -188,32 +188,17 @@ The Windows task `DevAcademy Offsite Backup` runs the wrapper daily at 12:00, st
 
 The Windows task `DevAcademy Backup Check` runs `scripts/check-backup-freshness.ps1` daily at 20:00 and fails if the newest OneDrive archive is older than 36 hours. On failure it writes `C:\Users\islam\OneDrive\DevAcademyBackups\BACKUP-ALERT.txt`; the alert is removed automatically on the next successful check. Results are appended to `exports/backups/backup-check.log`.
 
-### Legacy media migration (Supabase Storage → Hugging Face)
+### Legacy media policy (Supabase Storage stays as-is)
 
-The free Supabase project holds 335 legacy `media` objects (about 849 MB) and is close to the 1 GB Storage limit. The public Hugging Face dataset `devacademy-fcai/devacademy-media` is the new home for those objects under `legacy/`. Database links are rewritten only after the upload is verified, in batches of 25, with a rollback file for every row.
+**Decision (2026-10-29):** legacy media stays in Supabase Storage and every existing database link stays unchanged. New uploads go to Hugging Face. No bulk rewrite and no object deletion are planned.
 
-Inventory at the start of the migration: 494 database links (315 `lecture_items.url`, 178 `section_items.url`, 1 `profiles.avatar_url`), 295 distinct referenced objects, 335 total objects, 40 unreferenced objects, and 0 missing objects.
+- **Old media:** 335 objects / about 849 MB in the Supabase `media` bucket, referenced by 494 links (315 `lecture_items.url`, 178 `section_items.url`, 1 `profiles.avatar_url`). The bucket is static apart from avatars, so the 1 GB free limit keeps roughly 175 MB of headroom.
+- **New media:** subject/lecture files and personal files upload through the Hugging Face Worker. Avatars are the only new writes to Supabase Storage: compressed, one file per user (`avatars/<user-id>.<ext>`), with the previous file removed.
+- **Backups:** because the legacy objects remain authoritative, the daily archive still includes about 890 MB of media (compressed archive about 734 MB).
+- **Do not run** `node scripts/migrate-media-to-hf.mjs rewrite --apply`; there is no approved cutover.
+- A partial copy of 80 files (about 6 MB) sits under `legacy/` in `devacademy-fcai/devacademy-media` from an abandoned upload. The app does not reference it.
 
-```powershell
-# 1. Upload the cached objects (reads exports/backups/.media-cache directly;
-#    the two case-only paths cannot coexist in a Windows staging folder).
-python scripts/upload-legacy-media.py
-```
-
-The uploader commits in batches of 20 files / 50 MiB with three retries per batch. It lists the remote `legacy/` tree first and skips files whose size already matches, so an interrupted run resumes with the same command. Progress is written to `exports/media-migration/upload-status.json` and `upload-batched.log` (both gitignored).
-
-```powershell
-# 2. Build the current link inventory and rewrite plan (read-only).
-node scripts/migrate-media-to-hf.mjs inventory
-
-# 3. Rewrite 25 rows at a time; progress is resumable.
-node scripts/migrate-media-to-hf.mjs rewrite --apply --batch-size 25
-
-# 4. Confirm zero legacy links and probe 25 random HF URLs (status + size).
-node scripts/migrate-media-to-hf.mjs verify
-```
-
-`rewrite` prints a dry run unless `--apply` is passed. Each batch is confirmed row by row before `progress.json` advances, so an interrupted run can be restarted with the same command. `rollback.sql` restores every rewritten link to its original Supabase Storage URL and is generated from the inventory; keep `exports/media-migration/` (gitignored) until the Supabase objects are deleted. The source objects stay in Supabase for 14 days after the verified cutover (until **2026-11-11**) before deletion, so a rollback remains possible.
+If storage pressure ever returns, the tooling is retained: `python scripts/upload-legacy-media.py` resumes the upload (batches of 20 files / 50 MiB, three retries, remote-size resume), then `node scripts/migrate-media-to-hf.mjs inventory`, `rewrite --apply --batch-size 25`, and `verify`. `rollback.sql` restores every changed link.
 
 ### Turnstile
 
