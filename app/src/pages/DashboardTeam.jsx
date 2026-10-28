@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { db } from '@/lib/api'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
 import EditRoleDialog from '@/components/team/EditRoleDialog'
 import InviteMemberCard from '@/components/team/InviteMemberCard'
@@ -127,23 +126,8 @@ export default function DashboardTeam() {
       setSending(false)
       return
     }
-    let emailSent = true
-    try {
-      const { error: sendError } = await supabase.functions.invoke('send-email', {
-        body: {
-          to: messageUser.email,
-          subject: 'New message from Dev Academy Admin',
-          body: messageBody,
-        },
-      })
-      if (sendError) emailSent = false
-    } catch {
-      emailSent = false
-    }
     toast.success(
-      emailSent
-        ? `Message sent to ${messageUser.email}`
-        : `✅ اتحفظت في إشعارات ${messageUser.email} — تنبيه البريد مش مفعّل حاليًا`,
+      `✅ اتحفظت في إشعارات ${messageUser.email} — تنبيه البريد مش مفعّل حاليًا`,
     )
     setMessageUser(null)
     setMessageBody('')

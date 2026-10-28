@@ -1,32 +1,27 @@
-# Supabase Edge Functions
+# Supabase Edge Functions (archived sources)
 
-Sources for the functions deployed to project `uytyvnoqhqivvhujdxoc`. There is
-no `supabase/config.toml` in this repository; functions are deployed from the
-dashboard or CLI and tracked here for reproducibility.
+> **No Edge Functions are deployed.** All five functions were deleted from project
+> `uytyvnoqhqivvhujdxoc` on 2026-10-28 after confirming that nothing in
+> `app/src` invokes them. The files here are kept as historical reference only.
+> Do not redeploy them without adding authentication and role checks first.
 
-| Function | Source | Deployed | `verify_jwt` | Used by app | Status |
-| --- | --- | --- | --- | --- | --- |
-| `invite-user` | repo (hardened) | v2, older | yes | no | Legacy email invite. Supabase Email provider is disabled. |
-| `process-upload-queue` | downloaded 2026-10-28 | v1 | yes | no | Stub: "simulates" uploads. `upload_queue` is empty. |
-| `check-quotas` | downloaded 2026-10-28 | v1 | yes | no | Stub: estimates quotas. Quota tables are empty. |
-| `refresh-hf-tokens` | downloaded 2026-10-28 | v1 | yes | no | No-op; only logs. |
-| `create-hf-permission` | downloaded 2026-10-28 | v1 | yes | no | Stub; uses `HF_TOKEN` without a role check. |
+There is no `supabase/config.toml` in this repository. The functions were
+originally deployed from the dashboard or CLI and downloaded here for
+reproducibility.
+
+| Function | Source | Production | Used by app | Why it was removed |
+| --- | --- | --- | --- | --- |
+| `invite-user` | repo (hardened) | deleted 2026-10-28 | no | Email invites are impossible while the Supabase Email provider is disabled; the deployed v2 also predated the CORS hardening here. |
+| `process-upload-queue` | downloaded 2026-10-28 | deleted 2026-10-28 | no | Stub that "simulated" uploads. `upload_queue` was empty. |
+| `check-quotas` | downloaded 2026-10-28 | deleted 2026-10-28 | no | Stub that estimated quotas. Quota tables were empty. |
+| `refresh-hf-tokens` | downloaded 2026-10-28 | deleted 2026-10-28 | no | No-op that only logged. |
+| `create-hf-permission` | downloaded 2026-10-28 | deleted 2026-10-28 | no | Used `HF_TOKEN` without a role check and called a non-existent Hugging Face endpoint. |
 
 ## Notes
 
-- The deployed `invite-user` (v2) predates the CORS allowlist hardening in this
-  repository. The local file is the source of truth, and the UI no longer calls
-  this function.
-- The four stub functions are deployed but unused: `cloud_storage_accounts`,
-  `upload_queue`, `daily_upload_stats`, and `storage_quota_logs` all have zero
-  rows, and nothing in `app/src` invokes them. They should be deleted or gated
-  to `super_admin` before public launch; `create-hf-permission` accepts calls
-  from any client holding the public anon key and spends the project's
-  `HF_TOKEN`.
-- Refresh the sources with:
-  `supabase functions download --project-ref <ref> --use-api --workdir <tmp>`
-  (requires `SUPABASE_ACCESS_TOKEN`).
-- Runtime secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected
-  by Supabase; `HF_TOKEN` is required by `check-quotas` and
-  `create-hf-permission`; `HF_CLIENT_ID` / `HF_CLIENT_SECRET` are reserved for
-  a future token refresh implementation.
+- The app uses Cloudflare Pages Functions and the `workers/hf-upload` Worker for
+  the active upload path; Supabase Edge Functions are not part of it.
+- If a function is needed later, add an explicit caller check
+  (`super_admin`/`is_staff`) and a least-privilege secret, then verify with the
+  anon key that the call is rejected.
+- The old sources can be refreshed from git history if ever required.

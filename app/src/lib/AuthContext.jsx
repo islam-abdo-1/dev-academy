@@ -26,6 +26,7 @@ function loadSupabase() {
  * @property {Record<string, any> | null} profile
  * @property {boolean} loading
  * @property {string | null} profileError
+ * @property {boolean} isDisabled
  * @property {boolean} isStaff
  * @property {boolean} isSuperAdmin
  * @property {() => Promise<{ error: Error | null }>} signOut
@@ -39,6 +40,7 @@ const AuthContext = createContext({
   profile: null,
   loading: true,
   profileError: null,
+  isDisabled: false,
   isStaff: false,
   isSuperAdmin: false,
   signOut: async () => ({ error: null }),
@@ -121,8 +123,11 @@ export function AuthProvider({ children }) {
       profile,
       loading,
       profileError,
-      isStaff: role === "admin" || role === "super_admin",
-      isSuperAdmin: role === "super_admin",
+      isDisabled: Boolean(profile?.disabled),
+      isStaff:
+        !profile?.disabled &&
+        (role === "admin" || role === "super_admin"),
+      isSuperAdmin: !profile?.disabled && role === "super_admin",
       signOut: () => loadSupabase().then((client) => client.auth.signOut()),
       refreshProfile,
     };
