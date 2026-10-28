@@ -196,7 +196,7 @@ The Windows task `DevAcademy Backup Check` runs `scripts/check-backup-freshness.
 - **New media:** subject/lecture files and personal files upload through the Hugging Face Worker. Avatars are the only new writes to Supabase Storage: compressed, one file per user (`avatars/<user-id>.<ext>`), with the previous file removed.
 - **Backups:** because the legacy objects remain authoritative, the daily archive still includes about 890 MB of media (compressed archive about 734 MB).
 - **Do not run** `node scripts/migrate-media-to-hf.mjs rewrite --apply`; there is no approved cutover.
-- A partial copy of 80 files (about 6 MB) sits under `legacy/` in `devacademy-fcai/devacademy-media` from an abandoned upload. The app does not reference it.
+- The abandoned partial upload (80 files, about 6 MB) was deleted from `legacy/` in `devacademy-fcai/devacademy-media` on 2026-10-29. The app never referenced it.
 
 If storage pressure ever returns, the tooling is retained: `python scripts/upload-legacy-media.py` resumes the upload (batches of 20 files / 50 MiB, three retries, remote-size resume), then `node scripts/migrate-media-to-hf.mjs inventory`, `rewrite --apply --batch-size 25`, and `verify`. `rollback.sql` restores every changed link.
 
