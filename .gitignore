@@ -4,6 +4,7 @@ dist/
 .env.*
 !.env.example
 exports/
+__pycache__/
 .browser-profile/
 audit/
 supabase/.temp/
