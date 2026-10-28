@@ -24,14 +24,18 @@ export default function InviteMemberCard({
       <CardHeader>
         <CardTitle className="text-lg text-foreground flex items-center gap-2">
           <UserPlus size={20} className="text-primary" />
-          Invite New Member
+          إضافة عضو مسجّل
         </CardTitle>
+        <p className="mt-1 text-xs text-muted-foreground">
+          اطلب من العضو تسجيل الدخول بحساب Google أولاً، ثم ابحث بالبريد وحدد
+          الدور.
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-3">
           <Input
             type="email"
-            placeholder="Enter email address..."
+            placeholder="البريد الإلكتروني المسجّل..."
             value={email}
             onChange={(event) => onEmailChange(event.target.value)}
             className="bg-input border-border flex-1"
@@ -54,7 +58,7 @@ export default function InviteMemberCard({
             disabled={inviting}
             className="bg-primary text-primary-foreground hover:brightness-110"
           >
-            {inviting ? 'Inviting...' : 'Invite'}
+            {inviting ? 'جارٍ البحث...' : 'تحديد الدور'}
           </Button>
         </form>
       </CardContent>

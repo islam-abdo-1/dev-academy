@@ -3,5 +3,7 @@ Allow: /
 Disallow: /dashboard
 Disallow: /profile
 Disallow: /login
+Disallow: /legacy-login
+Disallow: /reset-password
 
 Sitemap: https://dev-academy.pages.dev/sitemap.xml

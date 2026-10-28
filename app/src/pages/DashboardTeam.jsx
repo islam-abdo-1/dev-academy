@@ -46,48 +46,28 @@ export default function DashboardTeam() {
 
   if (!isSuperAdmin) return <Navigate to="/dashboard" replace />
 
-  const handleInvite = async (event) => {
+  const handleInvite = (event) => {
     event.preventDefault()
     if (inviteRef.current) return
     const target = email.trim().toLowerCase()
     if (!target) return
-    if (members.some((member) => String(member.email || '').toLowerCase() === target)) {
-      toast.error('البريد ده مسجل بالفعل — عدّل دوره من قائمة الأعضاء بدل ما تبعته دعوة جديدة')
+    const existing = members.find(
+      (member) => String(member.email || '').toLowerCase() === target,
+    )
+    if (!existing) {
+      toast.error(
+        'العضو لازم يسجّل الدخول بحساب Google الأول، وبعدها تقدر تحدد دوره من القائمة',
+      )
       return
     }
     inviteRef.current = true
     setInviting(true)
-    try {
-      const { error } = await supabase.functions.invoke('invite-user', {
-        body: { email: target, role: inviteRole },
-      })
-      if (error) throw error
-      toast.success(`Invited ${target} as ${inviteRole}`)
-      setEmail('')
-      loadMembers()
-    } catch (error) {
-      let raw = String(error?.message || error || '')
-      try {
-        if (error?.context && typeof error.context.json === 'function') {
-          const body = await error.context.json()
-          if (body?.error) raw = String(body.error)
-        }
-      } catch {
-        void 0
-      }
-      if (raw === 'email_already_registered') {
-        toast.error('البريد ده مسجل بالفعل — عدّل دوره من قائمة الأعضاء بدل ما تبعته دعوة جديدة')
-      } else if (/function|not found|404|failed to send a request/i.test(raw)) {
-        toast.error(
-          'الدعوات بالبريد مش مفعّلة على السيرفر — ضيف المستخدم من لوحة Supabase وحدد دوره من هنا',
-        )
-      } else {
-        toast.error(raw || 'Failed to invite user')
-      }
-    } finally {
-      inviteRef.current = false
-      setInviting(false)
-    }
+    setEditUser(existing)
+    setEditRole(inviteRole)
+    setEmail('')
+    setInviting(false)
+    inviteRef.current = false
+    toast.info('تم العثور على العضو — راجع الدور واحفظ التغيير')
   }
 
   const handleRemove = async () => {

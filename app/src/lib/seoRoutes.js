@@ -95,8 +95,16 @@ export function seoFor(pathname) {
 
   if (path === "/reset-password") {
     return {
-      title: pageTitle("تعيين كلمة المرور"),
+      title: pageTitle("إعادة تعيين كلمة المرور"),
       description: "إعادة تعيين كلمة المرور في Dev Academy.",
+      robots: "noindex, nofollow",
+    };
+  }
+
+  if (path === "/legacy-login") {
+    return {
+      title: pageTitle("دخول الحسابات القديمة"),
+      description: "دخول مؤقت للحسابات القديمة في Dev Academy.",
       robots: "noindex, nofollow",
     };
   }
@@ -166,5 +174,5 @@ export function publicRoutes() {
 }
 
 export function shellRoutes() {
-  return ["/login", "/reset-password", "/profile", "/dashboard", "/dashboard/subjects", "/dashboard/resources", "/dashboard/team", "/dashboard/settings", "/dashboard/publish-requests", "/dashboard/storage", "/admin"];
+  return ["/login", "/legacy-login", "/reset-password", "/profile", "/dashboard", "/dashboard/subjects", "/dashboard/resources", "/dashboard/team", "/dashboard/settings", "/dashboard/publish-requests", "/dashboard/storage", "/admin"];
 }

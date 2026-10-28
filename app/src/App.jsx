@@ -23,7 +23,9 @@ const BrowseYear = lazy(() => import("./pages/BrowseYear"));
 const BrowseSemester = lazy(() => import("./pages/BrowseSemester"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Login = lazy(() => import("./pages/Login"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const LegacyLogin = lazy(() => import("./pages/LegacyLogin"));
+const legacyLoginEnabled =
+  import.meta.env.VITE_ENABLE_LEGACY_LOGIN === "true";
 const DashboardLayout = lazy(() => import("./pages/DashboardLayout"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const DashboardSubjects = lazy(() => import("./pages/DashboardSubjects"));
@@ -128,7 +130,13 @@ export default function App() {
       <Suspense fallback={<FullPageLoader />}>
         <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route
+          path="/legacy-login"
+          element={
+            legacyLoginEnabled ? <LegacyLogin /> : <Navigate to="/login" replace />
+          }
+        />
+        <Route path="/reset-password" element={<Navigate to="/login" replace />} />
         <Route path="/" element={<Home />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/s/:token" element={<PublicShareView />} />

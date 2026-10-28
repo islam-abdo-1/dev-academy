@@ -2,40 +2,22 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
   Brain,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  KeyRound,
   LoaderCircle,
-  LogIn,
-  Mail,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/AuthContext";
 import PublicBackground from "@/components/layout/PublicBackground";
-import Turnstile, { isTurnstileEnabled } from "@/components/Turnstile";
 
 const ERROR_MESSAGES = {
-  "Invalid login credentials":
-    "بيانات الدخول غير صحيحة — تأكد من البريد الإلكتروني وكلمة المرور",
-  "Email not confirmed": "بريدك الإلكتروني غير مُفعّل بعد",
-  "Email rate limit exceeded": "محاولات كثيرة — حاول مرة أخرى بعد قليل",
-  "provider is not enabled": "تسجيل الدخول بجوجل قيد التجهيز حالياً",
+  "provider is not enabled": "تسجيل الدخول بجوجل غير مفعّل حالياً",
   "captcha verification process failed":
     "فشل التحقق الأمني — أعد المحاولة",
   "captcha protection: request disallowed":
     "فشل التحقق الأمني — أعد المحاولة",
 };
-
-const RESET_COOLDOWN_KEY = "da-reset-cooldown-until";
-const RESET_COOLDOWN_MS = 60_000;
 
 const FEATURES = [
   { icon: Brain, text: "مسارات متخصصة في الذكاء الاصطناعي والأمن السيبراني" },
@@ -70,29 +52,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState(null);
-  const [captchaReset, setCaptchaReset] = useState(0);
-  const captchaRequired = isTurnstileEnabled();
-  const [cooldownUntil, setCooldownUntil] = useState(() => {
-    const stored = Number(localStorage.getItem(RESET_COOLDOWN_KEY));
-    return Number.isFinite(stored) ? stored : 0;
-  });
-  const [nowTick, setNowTick] = useState(Date.now());
-
-  useEffect(() => {
-    if (cooldownUntil <= Date.now()) return undefined;
-    const timer = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [cooldownUntil]);
-
-  const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - nowTick) / 1000));
 
   const requestedFrom = location.state?.from?.pathname;
   const from =
@@ -101,29 +61,6 @@ export default function Login() {
   useEffect(() => {
     if (!authLoading && user) navigate(from, { replace: true });
   }, [user, authLoading, from, navigate]);
-
-  const switchMode = (next) => {
-    setMode(next);
-    setShowPassword(false);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: { captchaToken: captchaToken || undefined },
-    });
-    setLoading(false);
-    if (error) {
-      setCaptchaReset((n) => n + 1);
-      toast.error(ERROR_MESSAGES[error.message] || error.message);
-      return;
-    }
-    toast.success("تم تسجيل الدخول بنجاح");
-    navigate(from, { replace: true });
-  };
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
@@ -142,45 +79,6 @@ export default function Login() {
       );
     }
   };
-
-  const handleForgot = async () => {
-    if (!email) {
-      toast.error("أدخل بريدك الإلكتروني أولاً");
-      return;
-    }
-    if (cooldownLeft > 0) return;
-    setSending(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-      captchaToken: captchaToken || undefined,
-    });
-    setSending(false);
-    if (error) {
-      setCaptchaReset((n) => n + 1);
-      toast.error(ERROR_MESSAGES[error.message] || error.message);
-      return;
-    }
-    const until = Date.now() + RESET_COOLDOWN_MS;
-    localStorage.setItem(RESET_COOLDOWN_KEY, String(until));
-    setCooldownUntil(until);
-    toast.success("تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني");
-  };
-
-  const googleButton = (
-    <button
-      type="button"
-      onClick={handleGoogle}
-      disabled={googleLoading}
-      className="w-full flex items-center justify-center gap-3 h-11 rounded-lg border border-border bg-background/60 hover:bg-muted/40 transition-colors text-sm font-medium disabled:opacity-60"
-    >
-      {googleLoading ? (
-        <LoaderCircle className="animate-spin" size={18} />
-      ) : (
-        <GoogleIcon />
-      )}
-      المتابعة باستخدام Google
-    </button>
-  );
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
@@ -223,206 +121,34 @@ export default function Login() {
             </div>
 
             <div className="neon-card rounded-2xl border border-border/60 bg-card/80 p-6 sm:p-8 backdrop-blur">
-              {mode !== "forgot" && (
-                <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-muted/40 p-1 border border-border/50">
-                  <button
-                    type="button"
-                    onClick={() => switchMode("login")}
-                    className={`h-9 rounded-lg text-sm font-medium transition-colors ${
-                      mode === "login"
-                        ? "bg-primary text-primary-foreground shadow"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    تسجيل الدخول
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchMode("signup")}
-                    className={`h-9 rounded-lg text-sm font-medium transition-colors ${
-                      mode === "signup"
-                        ? "bg-primary text-primary-foreground shadow"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    إنشاء حساب
-                  </button>
-                </div>
-              )}
+              <div className="mb-6 text-center">
+                <h1 className="text-xl font-bold">تسجيل الدخول</h1>
+                <p dir="rtl" className="mt-2 text-sm text-muted-foreground">
+                  استخدم حساب Google للدخول أو إنشاء حساب جديد.
+                </p>
+              </div>
 
-              {mode === "login" && (
-                <>
-                  {googleButton}
-                  <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="h-px flex-1 bg-border/60" />
-                    أو
-                    <span className="h-px flex-1 bg-border/60" />
-                  </div>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">البريد الإلكتروني</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        required
-                        dir="ltr"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="password">كلمة المرور</Label>
-                        <button
-                          type="button"
-                          onClick={() => switchMode("forgot")}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          نسيت كلمة المرور؟
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          required
-                          dir="ltr"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((value) => !value)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          tabIndex={-1}
-                        >
-                          {showPassword ? (
-                            <EyeOff size={16} />
-                          ) : (
-                            <Eye size={16} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <Turnstile
-                      onToken={setCaptchaToken}
-                      resetSignal={captchaReset}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={loading || (captchaRequired && !captchaToken)}
-                      className="w-full gap-2 h-11"
-                    >
-                      {loading ? (
-                        <LoaderCircle className="animate-spin" size={16} />
-                      ) : (
-                        <LogIn size={16} />
-                      )}
-                      تسجيل الدخول
-                    </Button>
-                  </form>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={handleGoogle}
+                disabled={googleLoading || authLoading}
+                className="w-full flex items-center justify-center gap-3 h-11 rounded-lg border border-border bg-background/60 hover:bg-muted/40 transition-colors text-sm font-medium disabled:opacity-60"
+              >
+                {googleLoading ? (
+                  <LoaderCircle className="animate-spin" size={18} />
+                ) : (
+                  <GoogleIcon />
+                )}
+                المتابعة باستخدام Google
+              </button>
 
-              {mode === "signup" && (
-                <div className="space-y-5">
-                  {googleButton}
-                  <div className="text-center space-y-2">
-                    <h2 className="text-lg font-bold">أنشئ حسابك مجاناً</h2>
-                    <p className="text-sm text-muted-foreground">
-                      بضغطة واحدة باستخدام حساب Google — بدون كلمة مرور جديدة.
-                    </p>
-                  </div>
-                  <ul className="space-y-3">
-                    {[
-                      "احفظ مسارك الدراسي وموادك المفضلة",
-                      "تابع تقدمك محاضرة بمحاضرة",
-                      "وصول كامل لمحتوى تخصصك",
-                    ].map((text) => (
-                      <li
-                        key={text}
-                        className="flex items-center gap-2 text-sm text-muted-foreground"
-                      >
-                        <CheckCircle2
-                          size={15}
-                          className="text-primary flex-shrink-0"
-                        />
-                        {text}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-center text-xs text-muted-foreground">
-                    لديك حساب بالفعل؟{" "}
-                    <button
-                      type="button"
-                      onClick={() => switchMode("login")}
-                      className="text-primary hover:underline"
-                    >
-                      سجّل الدخول
-                    </button>
-                  </p>
-                </div>
-              )}
-
-              {mode === "forgot" && (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                      <KeyRound size={20} className="text-primary" />
-                    </div>
-                    <h2 className="text-lg font-bold">استعادة كلمة المرور</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="forgot-email">البريد الإلكتروني</Label>
-                    <Input
-                      id="forgot-email"
-                      type="email"
-                      required
-                      dir="ltr"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                    />
-                  </div>
-                  <Turnstile
-                    onToken={setCaptchaToken}
-                    resetSignal={captchaReset}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleForgot}
-                    disabled={
-                      sending ||
-                      cooldownLeft > 0 ||
-                      (captchaRequired && !captchaToken)
-                    }
-                    className="w-full gap-2 h-11"
-                  >
-                    {sending ? (
-                      <LoaderCircle className="animate-spin" size={16} />
-                    ) : (
-                      <Mail size={16} />
-                    )}
-                    {cooldownLeft > 0
-                      ? `حاول مجدداً بعد ${cooldownLeft} ث`
-                      : "إرسال رابط الاستعادة"}
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => switchMode("login")}
-                    className="mx-auto flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    <ArrowLeft size={12} />
-                    رجوع لتسجيل الدخول
-                  </button>
-                </div>
-              )}
+              <div
+                dir="rtl"
+                className="mt-6 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground"
+              >
+                لا نستخدم كلمات مرور أو رسائل بريدية. تسجيل الدخول وإنشاء
+                الحساب يتمّان مباشرةً من خلال Google.
+              </div>
             </div>
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
