@@ -11,12 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { MaterialPreview } from "@/components/material/MaterialPreview";
 import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
+import { RatingButtons } from "@/components/material/RatingButtons";
 import {
   downloadHref,
   isStorageFile,
   isSupabaseStorageHtml,
   safeHttpUrl,
 } from "@/lib/materialPreview";
+import { getMaterialRatingTarget } from "@/lib/materialRatings";
 import type { Material } from "@/components/material/types";
 
 interface MaterialViewerDialogProps {
@@ -57,6 +59,7 @@ export function MaterialViewerDialog({
 
   if (!material) return null;
 
+  const ratingTarget = getMaterialRatingTarget(material);
   const blobUrl = material.url?.startsWith("blob:") ? material.url : "";
   const safeUrl = safeHttpUrl(material.url) || blobUrl;
   const declaredDownload = material.downloadUrl
@@ -119,6 +122,12 @@ export function MaterialViewerDialog({
           </div>
 
           <div className="flex items-center gap-1">
+            {ratingTarget && (
+              <RatingButtons
+                materialType={ratingTarget.materialType}
+                materialId={ratingTarget.materialId}
+              />
+            )}
             {material.canSave && (
               <Button
                 type="button"

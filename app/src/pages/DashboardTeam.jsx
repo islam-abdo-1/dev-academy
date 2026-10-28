@@ -11,7 +11,7 @@ import SendMessageDialog from '@/components/team/SendMessageDialog'
 import { sortUsersByRole } from '@/components/team/roles'
 
 export default function DashboardTeam() {
-  const { isSuperAdmin, user, profile } = useAuth()
+  const { isSuperAdmin, user, profile, refreshProfile } = useAuth()
 
   const [email, setEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('user')
@@ -21,6 +21,9 @@ export default function DashboardTeam() {
   const [removeUser, setRemoveUser] = useState(null)
   const [editUser, setEditUser] = useState(null)
   const [editRole, setEditRole] = useState('')
+  const [editMajor, setEditMajor] = useState('')
+  const [editYear, setEditYear] = useState('')
+  const [editSemester, setEditSemester] = useState('')
   const [savingId, setSavingId] = useState(null)
   const [messageUser, setMessageUser] = useState(null)
   const [messageBody, setMessageBody] = useState('')
@@ -63,6 +66,9 @@ export default function DashboardTeam() {
     setInviting(true)
     setEditUser(existing)
     setEditRole(inviteRole)
+    setEditMajor(existing.major || '')
+    setEditYear(existing.year || '')
+    setEditSemester(existing.semester || '')
     setEmail('')
     setInviting(false)
     inviteRef.current = false
@@ -85,7 +91,15 @@ export default function DashboardTeam() {
     if (!editUser) return
     setSavingId(editUser.id)
     try {
-      await db.update('profiles', editUser.id, { role: editRole })
+      await db.update('profiles', editUser.id, {
+        role: editRole,
+        major: editMajor || null,
+        year: editYear || null,
+        semester: editSemester || null,
+      })
+      if (editUser.id === profile?.id) {
+        await refreshProfile()
+      }
       toast.success(`Updated ${editUser.email}`)
       setEditUser(null)
       setSavingId(null)
@@ -99,6 +113,9 @@ export default function DashboardTeam() {
   const handleOpenEdit = (member) => {
     setEditUser(member)
     setEditRole(member.role || 'user')
+    setEditMajor(member.major || '')
+    setEditYear(member.year || '')
+    setEditSemester(member.semester || '')
   }
 
   const handleOpenMessage = (member) => {
@@ -164,8 +181,16 @@ export default function DashboardTeam() {
       <EditRoleDialog
         user={editUser}
         role={editRole}
+        major={editMajor}
+        year={editYear}
+        semester={editSemester}
         savingId={savingId}
         onRoleChange={setEditRole}
+        onTrackChange={(field, value) => {
+          if (field === 'major') setEditMajor(value)
+          else if (field === 'year') setEditYear(value)
+          else if (field === 'semester') setEditSemester(value)
+        }}
         onSave={handleSaveRole}
         onClose={() => setEditUser(null)}
       />

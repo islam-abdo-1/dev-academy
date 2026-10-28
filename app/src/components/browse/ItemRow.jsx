@@ -21,6 +21,7 @@ import {
   mediaKind,
 } from "@/lib/materialPreview";
 import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
+import { RatingButtons } from "@/components/material/RatingButtons";
 import { materialFromOfficial } from "@/components/material/types";
 
 export {
@@ -64,6 +65,7 @@ function ItemIcon({ item }) {
 export default function ItemRow({ item, color, kind = "lecture" }) {
   const { openMaterial, openQuickSave, openShare } = useMaterialViewer();
   const material = materialFromOfficial(item, kind);
+  const ratingType = kind === "section" ? "section_item" : "lecture_item";
   const previewKind = getPreviewKind(item);
   const itemClass =
     "flex items-center gap-2 text-xs p-2 rounded-lg hover:bg-white/5 transition-colors group flex-1 min-w-0 text-left";
@@ -100,6 +102,12 @@ export default function ItemRow({ item, color, kind = "lecture" }) {
           {content}
         </span>
       )}
+
+      <RatingButtons
+        materialType={ratingType}
+        materialId={String(item.id)}
+        compact
+      />
 
       <button
         type="button"

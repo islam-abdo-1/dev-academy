@@ -1,8 +1,25 @@
 import { useEffect, useState } from 'react'
-import { Activity, BookOpen, FileText, UserPlus, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  Activity,
+  ArrowLeft,
+  BookOpen,
+  FileText,
+  GraduationCap,
+  Star,
+  UserPlus,
+  Users,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  MAJOR_LABELS,
+  SEMESTER_LABELS,
+  YEAR_LABELS,
+} from '@/components/subjects/labels'
 import { db } from '@/lib/api'
+import { useAuth } from '@/lib/AuthContext'
 import { supabase } from '@/lib/supabase'
 
 function StatCard({ title, value, icon: Icon, loading }) {
@@ -26,6 +43,8 @@ function StatCard({ title, value, icon: Icon, loading }) {
 }
 
 export default function DashboardHome() {
+  const { profile } = useAuth()
+  const [trackPeers, setTrackPeers] = useState(null)
   const [subjects, setSubjects] = useState([])
   const [subjectsLoading, setSubjectsLoading] = useState(true)
   const [resources, setResources] = useState([])
@@ -53,6 +72,32 @@ export default function DashboardHome() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!profile?.major || !profile?.year) {
+      setTrackPeers(null)
+      return
+    }
+    let cancelled = false
+    db.filter('profiles', { role: ['admin', 'super_admin'] })
+      .then((rows) => {
+        if (cancelled) return
+        setTrackPeers(
+          (rows || []).filter(
+            (row) =>
+              !row.disabled &&
+              row.major === profile.major &&
+              row.year === profile.year,
+          ).length,
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setTrackPeers(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.major, profile?.year])
 
   useEffect(() => {
     let cancelled = false
@@ -108,6 +153,50 @@ export default function DashboardHome() {
   return (
     <div>
       <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">Dashboard</h1>
+
+      <Card className="neon-card bg-card mb-6">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+          <div className="rounded-lg bg-primary/10 p-3 text-primary">
+            <GraduationCap size={24} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">مساري</p>
+            <p className="text-lg font-semibold text-foreground">
+              {MAJOR_LABELS[profile?.major] || 'بدون تخصص'} ·{' '}
+              {YEAR_LABELS[profile?.year] || 'بدون سنة'} ·{' '}
+              {SEMESTER_LABELS[profile?.semester] || 'بدون ترم'}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {trackPeers === null ? (
+                <>
+                  حدّد مسارك من{' '}
+                  <Link to="/profile" className="text-primary underline">
+                    الملف الشخصي
+                  </Link>{' '}
+                  عشان تظهر في مجموعة الفريق.
+                </>
+              ) : (
+                `${trackPeers} أدمن في نفس التخصص والسنة.`
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link to="/dashboard/tracks">
+                فريق المسار
+                <ArrowLeft size={15} className="mr-2" />
+              </Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link to="/dashboard/ratings">
+                <Star size={15} className="ml-1.5" />
+                التقييمات
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard title="Total Subjects" value={subjects.length} icon={BookOpen} loading={subjectsLoading} />
         <StatCard title="Total Resources" value={resources.length} icon={FileText} loading={resourcesLoading} />

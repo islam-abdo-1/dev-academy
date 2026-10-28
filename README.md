@@ -29,7 +29,9 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 - **Personal library** — upload private files, organize saved items into lists, and download or share.
 - **Public sharing** — revocable view/download links for single files or whole lists.
 - **Publishing workflow** — students submit personal files for review; staff approve and publish into the official catalog.
-- **Staff dashboard** — subjects, resources, team roles, publish requests, and storage administration. Members must sign in with Google before an admin can assign their role.
+- **Material ratings** — signed-in users can like or dislike official lecture items, section items, and resources; one vote per user and clicking the same reaction removes it. Public pages show aggregate counts only, while staff see voter identities and can review low-rated materials from the dashboard.
+- **Staff tracks** — admins are grouped by major and academic year, with each member's term shown inside the group. The dashboard highlights the current admin's own group; super admins can edit any track while regular admins can edit their own.
+- **Staff dashboard** — subjects, resources, tracks, material ratings, team roles, publish requests, and storage administration. Members must sign in with Google before an admin can assign their role.
 - **Arabic RTL UI** — responsive layout, dark theme, accessible keyboard navigation.
 - **Storage split** — Supabase for auth/DB/legacy media/avatars; Hugging Face private bucket (through a Cloudflare Worker and same-origin Pages Function) for personal study files, with per-user quotas and reservation-based accounting.
 - **Privacy-friendly analytics** — Cloudflare Web Analytics for visitors plus an in-app admin summary for registered users and daily activity.

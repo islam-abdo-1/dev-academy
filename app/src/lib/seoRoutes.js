@@ -174,5 +174,20 @@ export function publicRoutes() {
 }
 
 export function shellRoutes() {
-  return ["/login", "/legacy-login", "/reset-password", "/profile", "/dashboard", "/dashboard/subjects", "/dashboard/resources", "/dashboard/team", "/dashboard/settings", "/dashboard/publish-requests", "/dashboard/storage", "/admin"];
+  return [
+    "/login",
+    "/legacy-login",
+    "/reset-password",
+    "/profile",
+    "/dashboard",
+    "/dashboard/subjects",
+    "/dashboard/tracks",
+    "/dashboard/ratings",
+    "/dashboard/resources",
+    "/dashboard/team",
+    "/dashboard/settings",
+    "/dashboard/publish-requests",
+    "/dashboard/storage",
+    "/admin",
+  ];
 }

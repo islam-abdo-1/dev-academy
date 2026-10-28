@@ -9,6 +9,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  MAJOR_LABELS,
+  SEMESTER_LABELS,
+  YEAR_LABELS,
+} from '@/components/subjects/labels'
 import { MemberAvatar, RoleBadge } from '@/components/team/roles'
 
 function isProtectedUser(user, currentUserEmail) {
@@ -59,6 +64,17 @@ export default function MemberList({
                       {user.full_name || 'Unknown'}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    <p className="text-[11px] text-muted-foreground/80 truncate">
+                      {user.major || user.year || user.semester ? (
+                        <>
+                          {MAJOR_LABELS[user.major] || 'بدون تخصص'} ·{' '}
+                          {YEAR_LABELS[user.year] || 'بدون سنة'} ·{' '}
+                          {SEMESTER_LABELS[user.semester] || 'بدون ترم'}
+                        </>
+                      ) : (
+                        <span className="text-amber-400">بدون مسار</span>
+                      )}
+                    </p>
                   </div>
                   <RoleBadge user={user} />
                   {!protectedUser && (

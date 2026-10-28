@@ -5,10 +5,12 @@ import {
   BookOpen,
   ClipboardCheck,
   FileText,
+  GraduationCap,
   HardDrive,
   LayoutDashboard,
   LogOut,
   Settings,
+  Star,
   Users,
   X,
 } from 'lucide-react'
@@ -28,6 +30,18 @@ export const NAV_ITEMS = [
     label: 'Subjects',
     icon: BookOpen,
     href: '/dashboard/subjects',
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+  },
+  {
+    label: 'Tracks',
+    icon: GraduationCap,
+    href: '/dashboard/tracks',
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+  },
+  {
+    label: 'Ratings',
+    icon: Star,
+    href: '/dashboard/ratings',
     roles: ['ADMIN', 'SUPER_ADMIN'],
   },
   {

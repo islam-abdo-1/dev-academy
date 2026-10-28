@@ -29,6 +29,8 @@ const legacyLoginEnabled =
 const DashboardLayout = lazy(() => import("./pages/DashboardLayout"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const DashboardSubjects = lazy(() => import("./pages/DashboardSubjects"));
+const DashboardTracks = lazy(() => import("./pages/DashboardTracks"));
+const DashboardRatings = lazy(() => import("./pages/DashboardRatings"));
 const DashboardResources = lazy(() => import("./pages/DashboardResources"));
 const DashboardTeam = lazy(() => import("./pages/DashboardTeam"));
 const DashboardSettings = lazy(() => import("./pages/DashboardSettings"));
@@ -152,6 +154,8 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
             <Route path="subjects" element={<DashboardSubjects />} />
+            <Route path="tracks" element={<DashboardTracks />} />
+            <Route path="ratings" element={<DashboardRatings />} />
             <Route path="resources" element={<DashboardResources />} />
             <Route path="team" element={<DashboardTeam />} />
             <Route path="settings" element={<DashboardSettings />} />
