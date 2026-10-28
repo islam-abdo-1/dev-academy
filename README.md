@@ -194,7 +194,7 @@ Supabase Auth captcha is configured with the Turnstile widget `Dev Academy Auth`
 
 ### Google-only cutover
 
-Production is strict Google-only (Pages deployment `6db47b49`): `VITE_ENABLE_LEGACY_LOGIN=false`, Supabase `external.email=false` / `external.google=true`, and `/legacy-login` redirects to `/login`. A full Google OAuth login as a `super_admin` was verified after the cutover.
+Production is strict Google-only (Pages deployment `a0c988f4`, commit `f7a472d`): `VITE_ENABLE_LEGACY_LOGIN=false`, Supabase `external.email=false` / `external.google=true`, and `/legacy-login` redirects to `/login`. A full Google OAuth login as a `super_admin` was verified after the cutover.
 
 Five non-Google accounts remain retired in place. They have no Google identity yet, but Supabase automatically links a Google identity to an existing account when the email matches and is confirmed, so each person can sign in with the same Gmail address and keep their current role. The sixth account, `admin@devacademy.dev`, was deleted on 2026-10-28 after its 70 owned content rows (7 subjects, 9 chapters, 18 lectures, 6 sections, 6 section items, 18 lecture items, 6 resources) were transferred to `islam230366qw@gmail.com`; its single `task_reads` row cascaded away. The two active super admins are `islam230366qw@gmail.com` and `code39946@gmail.com`. No Supabase Edge Functions are deployed; see `db/functions/README.md`.
 
