@@ -59,7 +59,7 @@ function formatDate(value?: string | null): string {
 export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEmail {
   const siteUrl = trimTrailingSlash(input.siteUrl);
   const dashboardUrl = `${siteUrl}/dashboard`;
-  const logoUrl = `${siteUrl}/email-logo.jpg`;
+  const logoUrl = `${siteUrl}/logo-full.jpg`;
   const markUrl = `${siteUrl}/logo-mark.png`;
   const domain = siteUrl.replace(/^https?:\/\//, "");
   const recipientName = String(input.recipientName || "").trim();
@@ -150,7 +150,7 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6fafc" class="email-card" style="width:100%;max-width:600px;background-color:#f6fafc;border:1px solid #d9e4ec;border-radius:20px;overflow:hidden;border-collapse:separate;box-shadow:0 16px 42px rgba(6,24,38,0.10);">
           <tr>
             <td align="center" bgcolor="#000000" class="email-header" style="background-color:#000000;padding:22px 24px 16px;">
-              <img src="${logoUrl}" width="200" height="127" alt="Dev Academy" class="email-logo" style="display:block;width:200px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+              <img src="${logoUrl}" width="200" alt="Dev Academy" class="email-logo" style="display:block;width:200px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
