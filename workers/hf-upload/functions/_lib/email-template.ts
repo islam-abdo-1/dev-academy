@@ -3,6 +3,7 @@ export interface MessageEmailInput {
   body: string;
   senderName: string;
   senderEmail: string;
+  senderAvatarUrl?: string | null;
   recipientName?: string | null;
   createdAt?: string | null;
   siteUrl: string;
@@ -73,6 +74,8 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   const preheader = `${input.subject} — ${eyebrow}`;
   const founderName = "𝘌𝘕𝘎. 𝐼𝑠𝑙𝑎𝑚 𝐴𝑏𝑑𝑜";
   const fontStack = "Arial,'Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif";
+  const rawAvatarUrl = String(input.senderAvatarUrl || "").trim();
+  const avatarUrl = /^https?:\/\//i.test(rawAvatarUrl) ? rawAvatarUrl : "";
 
   const subject = escapeHtml(input.subject);
   const rawSenderName = input.senderName || "فريق Dev Academy";
@@ -84,6 +87,22 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   const dateHtml = escapeHtml(dateLabel);
   const founderHtml = escapeHtml(founderName);
 
+  const avatarHtml = avatarUrl
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+                        <tr>
+                          <td width="52" height="52" align="center" valign="middle">
+                            <img src="${escapeHtml(avatarUrl)}" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border:2px solid #ffffff;border-radius:999px;background-color:#e2e8f0;outline:none;text-decoration:none;" />
+                          </td>
+                        </tr>
+                      </table>`
+    : `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+                        <tr>
+                          <td width="48" height="48" align="center" valign="middle" bgcolor="#0b1220" style="width:48px;height:48px;background-color:#0b1220;border-radius:999px;font-family:${fontStack};font-size:18px;line-height:48px;font-weight:bold;color:#7dd3e3;">
+                            ${senderInitial}
+                          </td>
+                        </tr>
+                      </table>`;
+
   const html = `<!doctype html>
 <html dir="rtl" lang="ar">
 <head>
@@ -93,6 +112,30 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   <meta name="color-scheme" content="light only" />
   <meta name="supported-color-schemes" content="light only" />
   <title>${subject}</title>
+  <style>
+    @media only screen and (max-width:620px) {
+      .email-outer { padding:20px 10px !important; }
+      .email-card { border-radius:16px !important; }
+      .email-header { padding:18px 16px 14px !important; }
+      .email-logo { width:170px !important; }
+      .email-content { padding:24px 20px 0 !important; }
+      .email-title { font-size:20px !important; line-height:1.5 !important; }
+      .email-greeting { font-size:14px !important; }
+      .email-message { font-size:14.5px !important; line-height:1.9 !important; }
+      .email-sender-wrap { padding:16px 20px 0 !important; }
+      .email-cta { padding:20px 20px 26px !important; }
+      .email-footer { padding:20px 18px 16px !important; }
+    }
+    @media only screen and (max-width:380px) {
+      .email-outer { padding:14px 8px !important; }
+      .email-logo { width:150px !important; }
+      .email-content { padding:22px 16px 0 !important; }
+      .email-title { font-size:18px !important; }
+      .email-sender-wrap { padding:14px 16px 0 !important; }
+      .email-cta { padding:18px 16px 24px !important; }
+      .email-footer { padding:18px 14px 14px !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background-color:#e7eef3;font-family:${fontStack};color:#0b1220;">
   <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">
@@ -100,18 +143,21 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   </div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e7eef3" style="background-color:#e7eef3;">
     <tr>
-      <td align="center" style="padding:38px 14px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6fafc" style="width:100%;max-width:600px;background-color:#f6fafc;border:1px solid #d9e4ec;border-radius:20px;overflow:hidden;border-collapse:separate;box-shadow:0 16px 42px rgba(6,24,38,0.10);">
+      <td align="center" class="email-outer" style="padding:38px 14px;">
+        <!--[if mso]>
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td>
+        <![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6fafc" class="email-card" style="width:100%;max-width:600px;background-color:#f6fafc;border:1px solid #d9e4ec;border-radius:20px;overflow:hidden;border-collapse:separate;box-shadow:0 16px 42px rgba(6,24,38,0.10);">
           <tr>
-            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:22px 24px 16px;">
-              <img src="${logoUrl}" width="200" height="127" alt="Dev Academy" style="display:block;width:200px;max-width:200px;height:auto;border:0;outline:none;text-decoration:none;" />
+            <td align="center" bgcolor="#000000" class="email-header" style="background-color:#000000;padding:22px 24px 16px;">
+              <img src="${logoUrl}" width="200" height="127" alt="Dev Academy" class="email-logo" style="display:block;width:200px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
             <td bgcolor="#22d3ee" style="height:3px;background-color:#22d3ee;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
           <tr>
-            <td style="padding:32px 34px 0;">
+            <td class="email-content" style="padding:32px 34px 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
                 <tr>
                   <td width="4" height="14" bgcolor="#0891b2" style="width:4px;height:14px;background-color:#0891b2;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td>
@@ -120,29 +166,23 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
                   </td>
                 </tr>
               </table>
-              <h1 style="margin:0 0 16px;font-size:23px;line-height:1.55;font-weight:bold;color:#0b1220;">
+              <h1 class="email-title" style="margin:0 0 16px;font-size:23px;line-height:1.55;font-weight:bold;color:#0b1220;">
                 ${subject}
               </h1>
-              <p style="margin:0 0 12px;font-size:14.5px;line-height:1.9;color:#64748b;">
+              <p class="email-greeting" style="margin:0 0 12px;font-size:14.5px;line-height:1.9;color:#64748b;">
                 ${greetingHtml}
               </p>
-              <div style="margin:0;font-size:15px;line-height:1.95;color:#334155;">
+              <div class="email-message" style="margin:0;font-size:15px;line-height:1.95;color:#334155;word-break:break-word;">
                 ${messageHtml}
               </div>
             </td>
           </tr>
           <tr>
-            <td style="padding:20px 34px 0;">
+            <td class="email-sender-wrap" style="padding:20px 34px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef6f9" style="background-color:#eef6f9;border:1px solid #d6e5ee;border-right:3px solid #0891b2;border-radius:12px;">
                 <tr>
-                  <td width="54" valign="middle" style="padding:16px 14px 16px 0;text-align:center;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
-                      <tr>
-                        <td width="40" height="40" align="center" valign="middle" bgcolor="#0b1220" style="width:40px;height:40px;background-color:#0b1220;border-radius:999px;font-family:${fontStack};font-size:16px;line-height:40px;font-weight:bold;color:#7dd3e3;">
-                          ${senderInitial}
-                        </td>
-                      </tr>
-                    </table>
+                  <td width="58" valign="middle" style="padding:16px 12px 16px 0;text-align:center;">
+                    ${avatarHtml}
                   </td>
                   <td valign="middle" style="padding:16px 16px 16px 18px;">
                     <p style="margin:0 0 3px;font-size:10px;line-height:1.6;font-weight:bold;color:#64748b;">
@@ -151,7 +191,7 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
                     <p style="margin:0 0 2px;font-size:14px;line-height:1.6;font-weight:bold;color:#0b1220;">
                       ${senderName}
                     </p>
-                    <p style="margin:0 0 4px;font-size:11.5px;line-height:1.6;color:#0e7490;direction:ltr;text-align:right;">
+                    <p style="margin:0 0 4px;font-size:11.5px;line-height:1.6;color:#0e7490;direction:ltr;text-align:right;word-break:break-all;">
                       ${senderEmail}
                     </p>
                     ${
@@ -165,14 +205,14 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:24px 34px 30px;">
+            <td align="center" class="email-cta" style="padding:24px 34px 30px;">
               <a href="${dashboardUrl}" style="display:inline-block;background-color:#0b1220;color:#ffffff;border:1px solid #0e7490;text-decoration:none;font-family:${fontStack};font-size:14px;line-height:1.4;font-weight:bold;padding:13px 32px;border-radius:10px;">
                 الدخول إلى لوحة التحكم
               </a>
             </td>
           </tr>
           <tr>
-            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:22px 30px 18px;">
+            <td align="center" bgcolor="#000000" class="email-footer" style="background-color:#000000;padding:22px 30px 18px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                 <tr>
                   <td valign="middle" style="padding-left:8px;">
@@ -205,6 +245,9 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
             </td>
           </tr>
         </table>
+        <!--[if mso]>
+        </td></tr></table>
+        <![endif]-->
       </td>
     </tr>
   </table>

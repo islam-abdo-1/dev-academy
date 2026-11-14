@@ -31,6 +31,7 @@ interface CallerProfile {
   full_name: string | null;
   role: string | null;
   disabled: boolean | null;
+  avatar_url: string | null;
 }
 
 interface MessageRow {
@@ -530,7 +531,7 @@ async function upsertDeliveries(
 async function loadCaller(env: Env, userId: string): Promise<CallerProfile> {
   const rows = await restAsService<CallerProfile[]>(
     env,
-    `profiles?id=eq.${encodeURIComponent(userId)}&select=id,email,full_name,role,disabled&limit=1`,
+    `profiles?id=eq.${encodeURIComponent(userId)}&select=id,email,full_name,role,disabled,avatar_url&limit=1`,
   );
   const caller = rows?.[0];
   if (!caller) throw new HttpError(403, "profile not found");
@@ -795,6 +796,7 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       body: message.body || "",
       senderName: message.from_name || caller.full_name || "فريق Dev Academy",
       senderEmail: message.from_email,
+      senderAvatarUrl: caller.avatar_url,
       recipientName: recipient.full_name,
       createdAt: message.created_date,
       siteUrl: siteUrl(env),
