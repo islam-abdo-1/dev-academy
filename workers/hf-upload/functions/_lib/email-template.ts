@@ -59,20 +59,27 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   const siteUrl = trimTrailingSlash(input.siteUrl);
   const dashboardUrl = `${siteUrl}/dashboard`;
   const logoUrl = `${siteUrl}/logo-full.jpg`;
+  const markUrl = `${siteUrl}/logo-mark.png`;
+  const domain = siteUrl.replace(/^https?:\/\//, "");
   const recipientName = String(input.recipientName || "").trim();
   const greeting = recipientName ? `مرحبًا ${recipientName}،` : "مرحبًا،";
   const dateLabel = formatDate(input.createdAt);
+  const year = new Date().getFullYear();
   const eyebrow = input.isBroadcast
     ? "إعلان من فريق Dev Academy"
     : "رسالة جديدة من فريق Dev Academy";
   const preheader = `${input.subject} — ${eyebrow}`;
+  const founderName = "𝘌𝘕𝘎. 𝐼𝑠𝑙𝑎𝑚 𝐴𝑏𝑑𝑜";
 
   const subject = escapeHtml(input.subject);
-  const senderName = escapeHtml(input.senderName || "فريق Dev Academy");
+  const rawSenderName = input.senderName || "فريق Dev Academy";
+  const senderName = escapeHtml(rawSenderName);
+  const senderInitial = escapeHtml(Array.from(rawSenderName.trim())[0] || "D");
   const senderEmail = escapeHtml(input.senderEmail);
   const greetingHtml = escapeHtml(greeting);
   const messageHtml = bodyToHtml(input.body);
   const dateHtml = escapeHtml(dateLabel);
+  const founderHtml = escapeHtml(founderName);
 
   const html = `<!doctype html>
 <html dir="rtl" lang="ar">
@@ -80,59 +87,77 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="x-apple-disable-message-reformatting" />
-  <meta name="color-scheme" content="light" />
-  <meta name="supported-color-schemes" content="light" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light only" />
   <title>${subject}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#eef4f8;font-family:Tahoma,Arial,Helvetica,sans-serif;color:#0f172a;">
+<body style="margin:0;padding:0;background-color:#eef2f6;font-family:Tahoma,Arial,Helvetica,sans-serif;color:#0b1220;">
   <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">
     ${escapeHtml(preheader)}
   </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef4f8;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef2f6;">
     <tr>
-      <td align="center" style="padding:32px 12px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;border-collapse:separate;">
+      <td align="center" style="padding:40px 14px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #e3e9ef;border-radius:22px;overflow:hidden;border-collapse:separate;box-shadow:0 18px 48px rgba(4,16,28,0.10);">
           <tr>
-            <td align="center" style="background-color:#000000;padding:26px 28px;">
-              <img src="${logoUrl}" width="180" alt="Dev Academy" style="display:block;width:180px;max-width:180px;height:auto;border:0;outline:none;text-decoration:none;" />
+            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:30px 28px 22px;">
+              <img src="${logoUrl}" width="220" alt="Dev Academy" style="display:block;width:220px;max-width:220px;height:auto;border:0;outline:none;text-decoration:none;" />
+              <p style="margin:10px 0 0;font-size:10px;line-height:1.7;letter-spacing:1.2px;font-weight:bold;color:#7c8b9b;">
+                منصة تعليمية للذكاء الاصطناعي والأمن السيبراني
+              </p>
             </td>
           </tr>
           <tr>
-            <td style="height:4px;background-color:#00d9ff;font-size:0;line-height:0;">&nbsp;</td>
+            <td bgcolor="#00d9ff" style="height:3px;background-color:#00d9ff;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
           <tr>
-            <td style="padding:34px 32px 6px;">
-              <p style="margin:0 0 10px;font-size:12px;line-height:1.6;font-weight:bold;letter-spacing:0.4px;color:#0891b2;text-transform:none;">
-                ${escapeHtml(eyebrow)}
-              </p>
-              <h1 style="margin:0 0 20px;font-size:24px;line-height:1.45;font-weight:bold;color:#0f172a;">
+            <td style="padding:36px 34px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td bgcolor="#e8fbff" style="background-color:#e8fbff;border:1px solid #bdeef7;border-radius:999px;padding:6px 12px;">
+                    <p style="margin:0;font-size:11px;line-height:1.5;font-weight:bold;letter-spacing:0.3px;color:#067a8c;">
+                      ${escapeHtml(eyebrow)}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:16px 0 20px;font-size:25px;line-height:1.5;font-weight:bold;color:#0b1220;">
                 ${subject}
               </h1>
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.9;color:#334155;">
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.9;color:#475569;">
                 ${greetingHtml}
               </p>
-              <div style="margin:0;font-size:16px;line-height:1.95;color:#1e293b;">
+              <div style="margin:0;font-size:16px;line-height:2;color:#1e293b;">
                 ${messageHtml}
               </div>
             </td>
           </tr>
           <tr>
-            <td style="padding:24px 32px 8px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+            <td style="padding:26px 34px 8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b1220" style="background-color:#0b1220;border-radius:14px;">
                 <tr>
-                  <td style="padding:16px 18px;font-family:Tahoma,Arial,Helvetica,sans-serif;">
-                    <p style="margin:0 0 6px;font-size:11px;line-height:1.5;color:#64748b;">
+                  <td width="52" valign="middle" style="padding:18px 20px 18px 0;text-align:center;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+                      <tr>
+                        <td width="44" height="44" align="center" valign="middle" bgcolor="#00d9ff" style="width:44px;height:44px;background-color:#00d9ff;border-radius:999px;font-family:Tahoma,Arial,Helvetica,sans-serif;font-size:18px;line-height:44px;font-weight:bold;color:#04121a;">
+                          ${senderInitial}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td valign="middle" style="padding:18px 20px 18px 22px;">
+                    <p style="margin:0 0 5px;font-size:10px;line-height:1.5;letter-spacing:0.8px;font-weight:bold;color:#8fa3b8;">
                       أرسل هذه الرسالة
                     </p>
-                    <p style="margin:0 0 2px;font-size:15px;line-height:1.6;font-weight:bold;color:#0f172a;">
+                    <p style="margin:0 0 2px;font-size:15px;line-height:1.6;font-weight:bold;color:#ffffff;">
                       ${senderName}
                     </p>
-                    <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#64748b;direction:ltr;text-align:right;">
+                    <p style="margin:0 0 6px;font-size:12px;line-height:1.6;color:#7dd3e3;direction:ltr;text-align:right;">
                       ${senderEmail}
                     </p>
                     ${
                       dateHtml
-                        ? `<p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;">${dateHtml}</p>`
+                        ? `<p style="margin:0;font-size:11px;line-height:1.6;color:#64748b;">${dateHtml}</p>`
                         : ""
                     }
                   </td>
@@ -141,21 +166,39 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:10px 32px 34px;">
-              <a href="${dashboardUrl}" style="display:inline-block;background-color:#00c8e8;color:#04121a;text-decoration:none;font-family:Tahoma,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.4;font-weight:bold;padding:13px 28px;border-radius:10px;">
+            <td align="center" style="padding:26px 34px 36px;">
+              <a href="${dashboardUrl}" style="display:inline-block;background-color:#04070a;color:#ffffff;border:1px solid #00d9ff;text-decoration:none;font-family:Tahoma,Arial,Helvetica,sans-serif;font-size:15px;line-height:1.4;font-weight:bold;padding:14px 32px;border-radius:12px;">
                 افتح لوحة Dev Academy
               </a>
             </td>
           </tr>
           <tr>
-            <td style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:22px 32px;text-align:center;">
-              <p style="margin:0 0 6px;font-size:12px;line-height:1.7;font-weight:bold;color:#334155;">
-                Dev Academy — منصة تعليمية
+            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:30px 32px 26px;">
+              <img src="${markUrl}" width="42" alt="Dev Academy" style="display:block;width:42px;max-width:42px;height:42px;border:0;outline:none;text-decoration:none;" />
+              <p style="margin:10px 0 4px;font-size:14px;line-height:1.7;font-weight:bold;color:#ffffff;">
+                Dev Academy
               </p>
-              <p style="margin:0 0 10px;font-size:11px;line-height:1.7;color:#64748b;">
-                <a href="${siteUrl}" style="color:#0891b2;text-decoration:none;">${siteUrl.replace(/^https?:\/\//, "")}</a>
+              <p style="margin:0 0 6px;font-size:10px;line-height:1.7;letter-spacing:0.6px;color:#8fa3b8;">
+                منصة تعليمية للذكاء الاصطناعي والأمن السيبراني
               </p>
-              <p style="margin:0;font-size:11px;line-height:1.8;color:#94a3b8;">
+              <p style="margin:0;font-size:11px;line-height:1.7;">
+                <a href="${siteUrl}" style="color:#22d3ee;text-decoration:none;">${escapeHtml(domain)}</a>
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:18px auto;">
+                <tr>
+                  <td bgcolor="#1e2a36" style="width:64px;height:1px;background-color:#1e2a36;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+              <p style="margin:0 0 4px;font-size:10px;line-height:1.6;letter-spacing:1px;color:#64748b;">
+                المؤسس
+              </p>
+              <p style="margin:0 0 16px;font-size:14px;line-height:1.8;font-weight:bold;letter-spacing:0.3px;color:#e2e8f0;">
+                ${founderHtml}
+              </p>
+              <p style="margin:0 0 6px;font-size:10px;line-height:1.7;color:#5b6b7c;">
+                © ${year} Dev Academy. جميع الحقوق محفوظة.
+              </p>
+              <p style="margin:0;font-size:10px;line-height:1.8;color:#64748b;">
                 وصلتك هذه الرسالة لأنك عضو في Dev Academy. للرد، استخدم زر الرد وسيصل ردك إلى مرسل الرسالة.
               </p>
             </td>
@@ -181,8 +224,11 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
     "",
     `افتح لوحة Dev Academy: ${dashboardUrl}`,
     "",
-    "Dev Academy — منصة تعليمية",
+    "Dev Academy — منصة تعليمية للذكاء الاصطناعي والأمن السيبراني",
     siteUrl,
+    "",
+    `المؤسس: ${founderName}`,
+    `© ${year} Dev Academy. جميع الحقوق محفوظة.`,
     "",
     "وصلتك هذه الرسالة لأنك عضو في Dev Academy. للرد، استخدم زر الرد وسيصل ردك إلى مرسل الرسالة.",
   ]
