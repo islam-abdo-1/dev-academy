@@ -58,7 +58,7 @@ function formatDate(value?: string | null): string {
 export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEmail {
   const siteUrl = trimTrailingSlash(input.siteUrl);
   const dashboardUrl = `${siteUrl}/dashboard`;
-  const logoUrl = `${siteUrl}/logo-full.jpg`;
+  const logoUrl = `${siteUrl}/email-logo.jpg`;
   const markUrl = `${siteUrl}/logo-mark.png`;
   const domain = siteUrl.replace(/^https?:\/\//, "");
   const recipientName = String(input.recipientName || "").trim();
@@ -72,8 +72,7 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
     : "رسالة جديدة من فريق Dev Academy";
   const preheader = `${input.subject} — ${eyebrow}`;
   const founderName = "𝘌𝘕𝘎. 𝐼𝑠𝑙𝑎𝑚 𝐴𝑏𝑑𝑜";
-  const fontStack =
-    "'Segoe UI','Dubai','Noto Sans Arabic',Tahoma,Arial,sans-serif";
+  const fontStack = "Arial,'Segoe UI',Tahoma,'Noto Sans Arabic',sans-serif";
 
   const subject = escapeHtml(input.subject);
   const rawSenderName = input.senderName || "فريق Dev Academy";
@@ -91,73 +90,73 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="x-apple-disable-message-reformatting" />
-  <meta name="color-scheme" content="dark only" />
-  <meta name="supported-color-schemes" content="dark only" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light only" />
   <title>${subject}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#05080d;font-family:${fontStack};color:#e2e8f0;">
+<body style="margin:0;padding:0;background-color:#e7eef3;font-family:${fontStack};color:#0b1220;">
   <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">
     ${escapeHtml(preheader)}
   </div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#05080d" style="background-color:#05080d;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e7eef3" style="background-color:#e7eef3;">
     <tr>
-      <td align="center" style="padding:40px 14px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b1220" style="width:100%;max-width:600px;background-color:#0b1220;border:1px solid #1e293b;border-radius:22px;overflow:hidden;border-collapse:separate;">
+      <td align="center" style="padding:38px 14px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6fafc" style="width:100%;max-width:600px;background-color:#f6fafc;border:1px solid #d9e4ec;border-radius:20px;overflow:hidden;border-collapse:separate;box-shadow:0 16px 42px rgba(6,24,38,0.10);">
           <tr>
-            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:26px 24px 20px;">
-              <img src="${logoUrl}" width="200" alt="Dev Academy" style="display:block;width:200px;max-width:200px;height:auto;border:0;outline:none;text-decoration:none;" />
+            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:22px 24px 16px;">
+              <img src="${logoUrl}" width="200" height="127" alt="Dev Academy" style="display:block;width:200px;max-width:200px;height:auto;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
-            <td bgcolor="#00d9ff" style="height:3px;background-color:#00d9ff;font-size:0;line-height:0;">&nbsp;</td>
+            <td bgcolor="#22d3ee" style="height:3px;background-color:#22d3ee;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
           <tr>
-            <td style="padding:34px 32px 6px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;">
+            <td style="padding:32px 34px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
                 <tr>
-                  <td width="4" height="16" bgcolor="#22d3ee" style="width:4px;height:16px;background-color:#22d3ee;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td>
-                  <td style="padding-right:8px;font-size:11px;line-height:1.6;font-weight:bold;color:#67e8f9;">
+                  <td width="4" height="14" bgcolor="#0891b2" style="width:4px;height:14px;background-color:#0891b2;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td>
+                  <td style="padding-right:8px;font-size:11px;line-height:1.6;font-weight:bold;color:#0e7490;">
                     ${escapeHtml(eyebrow)}
                   </td>
                 </tr>
               </table>
-              <h1 style="margin:0 0 18px;font-size:24px;line-height:1.55;font-weight:bold;color:#f8fafc;">
+              <h1 style="margin:0 0 16px;font-size:23px;line-height:1.55;font-weight:bold;color:#0b1220;">
                 ${subject}
               </h1>
-              <p style="margin:0 0 14px;font-size:15px;line-height:1.9;color:#94a3b8;">
+              <p style="margin:0 0 12px;font-size:14.5px;line-height:1.9;color:#64748b;">
                 ${greetingHtml}
               </p>
-              <div style="margin:0;font-size:15.5px;line-height:1.95;color:#cbd5e1;">
+              <div style="margin:0;font-size:15px;line-height:1.95;color:#334155;">
                 ${messageHtml}
               </div>
             </td>
           </tr>
           <tr>
-            <td style="padding:22px 32px 6px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#111c2e" style="background-color:#111c2e;border:1px solid #1e2e44;border-radius:14px;">
+            <td style="padding:20px 34px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef6f9" style="background-color:#eef6f9;border:1px solid #d6e5ee;border-right:3px solid #0891b2;border-radius:12px;">
                 <tr>
-                  <td width="50" valign="middle" style="padding:16px 18px 16px 0;text-align:center;">
+                  <td width="54" valign="middle" style="padding:16px 14px 16px 0;text-align:center;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                       <tr>
-                        <td width="42" height="42" align="center" valign="middle" bgcolor="#22d3ee" style="width:42px;height:42px;background-color:#22d3ee;border-radius:999px;font-family:${fontStack};font-size:17px;line-height:42px;font-weight:bold;color:#04121a;">
+                        <td width="40" height="40" align="center" valign="middle" bgcolor="#0b1220" style="width:40px;height:40px;background-color:#0b1220;border-radius:999px;font-family:${fontStack};font-size:16px;line-height:40px;font-weight:bold;color:#7dd3e3;">
                           ${senderInitial}
                         </td>
                       </tr>
                     </table>
                   </td>
-                  <td valign="middle" style="padding:16px 18px 16px 20px;">
-                    <p style="margin:0 0 4px;font-size:10.5px;line-height:1.6;font-weight:bold;color:#7f93a8;">
+                  <td valign="middle" style="padding:16px 16px 16px 18px;">
+                    <p style="margin:0 0 3px;font-size:10px;line-height:1.6;font-weight:bold;color:#64748b;">
                       المرسل
                     </p>
-                    <p style="margin:0 0 1px;font-size:14.5px;line-height:1.6;font-weight:bold;color:#f8fafc;">
+                    <p style="margin:0 0 2px;font-size:14px;line-height:1.6;font-weight:bold;color:#0b1220;">
                       ${senderName}
                     </p>
-                    <p style="margin:0 0 5px;font-size:11.5px;line-height:1.6;color:#67e8f9;direction:ltr;text-align:right;">
+                    <p style="margin:0 0 4px;font-size:11.5px;line-height:1.6;color:#0e7490;direction:ltr;text-align:right;">
                       ${senderEmail}
                     </p>
                     ${
                       dateHtml
-                        ? `<p style="margin:0;font-size:10.5px;line-height:1.6;color:#64748b;">${dateHtml}</p>`
+                        ? `<p style="margin:0;font-size:10px;line-height:1.6;color:#94a3b8;">${dateHtml}</p>`
                         : ""
                     }
                   </td>
@@ -166,47 +165,41 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:24px 32px 34px;">
-              <a href="${dashboardUrl}" style="display:inline-block;background-color:#22d3ee;color:#04121a;border:1px solid #67e8f9;text-decoration:none;font-family:${fontStack};font-size:14.5px;line-height:1.4;font-weight:bold;padding:13px 30px;border-radius:10px;">
+            <td align="center" style="padding:24px 34px 30px;">
+              <a href="${dashboardUrl}" style="display:inline-block;background-color:#0b1220;color:#ffffff;border:1px solid #0e7490;text-decoration:none;font-family:${fontStack};font-size:14px;line-height:1.4;font-weight:bold;padding:13px 32px;border-radius:10px;">
                 الدخول إلى لوحة التحكم
               </a>
             </td>
           </tr>
           <tr>
-            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:26px 30px 22px;">
+            <td align="center" bgcolor="#000000" style="background-color:#000000;padding:22px 30px 18px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                 <tr>
-                  <td valign="middle" style="padding-left:10px;">
-                    <img src="${markUrl}" width="34" alt="Dev Academy" style="display:block;width:34px;max-width:34px;height:34px;border:0;outline:none;text-decoration:none;" />
+                  <td valign="middle" style="padding-left:8px;">
+                    <img src="${markUrl}" width="28" alt="Dev Academy" style="display:block;width:28px;max-width:28px;height:28px;border:0;outline:none;text-decoration:none;" />
                   </td>
                   <td valign="middle" style="text-align:right;">
-                    <p style="margin:0 0 2px;font-size:13.5px;line-height:1.6;font-weight:bold;color:#f8fafc;">
+                    <p style="margin:0 0 1px;font-size:13px;line-height:1.6;font-weight:bold;color:#f8fafc;">
                       Dev Academy
                     </p>
-                    <p style="margin:0;font-size:10.5px;line-height:1.7;color:#8fa3b8;">
+                    <p style="margin:0;font-size:10px;line-height:1.7;color:#8fa3b8;">
                       منصة تعليمية للذكاء الاصطناعي والأمن السيبراني
                     </p>
                   </td>
                 </tr>
               </table>
-              <p style="margin:10px 0 0;font-size:10.5px;line-height:1.7;">
+              <p style="margin:8px 0 0;font-size:10.5px;line-height:1.7;">
                 <a href="${siteUrl}" style="color:#22d3ee;text-decoration:none;">${escapeHtml(domain)}</a>
               </p>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:16px auto 14px;">
-                <tr>
-                  <td bgcolor="#1e293b" style="width:48px;height:1px;background-color:#1e293b;font-size:0;line-height:0;">&nbsp;</td>
-                </tr>
-              </table>
-              <p style="margin:0 0 3px;font-size:10px;line-height:1.6;color:#64748b;">
+              <p style="margin:10px 0 0;font-size:10px;line-height:1.7;color:#64748b;">
                 المؤسس
+                <span style="color:#334155;">·</span>
+                <span style="font-size:12.5px;font-weight:bold;color:#e2e8f0;">${founderHtml}</span>
               </p>
-              <p style="margin:0 0 14px;font-size:13.5px;line-height:1.8;font-weight:bold;color:#e2e8f0;">
-                ${founderHtml}
-              </p>
-              <p style="margin:0 0 4px;font-size:10px;line-height:1.7;color:#475569;">
+              <p style="margin:8px 0 0;font-size:10px;line-height:1.7;color:#475569;">
                 © ${year} Dev Academy. جميع الحقوق محفوظة.
               </p>
-              <p style="margin:0;font-size:10px;line-height:1.8;color:#64748b;">
+              <p style="margin:4px 0 0;font-size:10px;line-height:1.8;color:#64748b;">
                 تلقيت هذه الرسالة بصفتك عضوًا في منصة Dev Academy. للرد، استخدم زر الرد وسيصل ردك مباشرة إلى المرسل.
               </p>
             </td>
