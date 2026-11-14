@@ -2,15 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarClock,
   Mail,
+  MailWarning,
   MapPin,
   Megaphone,
   MessageSquare,
+  RotateCw,
   Send,
   Trash2,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/lib/api";
+import {
+  sendBroadcastEmails,
+  sendMessageEmails,
+} from "@/lib/emailDelivery";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { formatDate } from "@/lib/formatDate";
@@ -81,14 +87,18 @@ export default function BroadcastPanel({ user }) {
   const [pathYear, setPathYear] = useState("all");
   const [announcements, setAnnouncements] = useState([]);
   const [sentMessages, setSentMessages] = useState([]);
+  const [deliveries, setDeliveries] = useState({});
   const [users, setUsers] = useState([]);
   const [sending, setSending] = useState(false);
+  const [emailProgress, setEmailProgress] = useState(null);
+  const [retryingKey, setRetryingKey] = useState("");
   const sendingRef = useRef(false);
   const broadcastRef = useRef({ fingerprint: "", id: "" });
 
   const buildPath = () => {
-    if (pathSection === "all" && pathYear === "all") return "";
-    return [pathSection, pathYear].join("_");
+    return [pathSection, pathYear]
+      .filter((value) => value !== "all")
+      .join("_");
   };
 
   const loadAnnouncements = useCallback(async () => {
@@ -100,6 +110,32 @@ export default function BroadcastPanel({ user }) {
     setAnnouncements(rows);
   }, []);
 
+  const loadSentMessages = useCallback(async () => {
+    const rows = await db.list("messages", {
+      order: "created_date",
+      asc: false,
+      limit: 100,
+    });
+    setSentMessages(rows);
+    const ids = rows.map((row) => row.id).filter(Boolean);
+    if (ids.length === 0) {
+      setDeliveries({});
+      return;
+    }
+    try {
+      const deliveryRows = await db.filter("message_email_deliveries", {
+        message_id: ids,
+      });
+      setDeliveries(
+        Object.fromEntries(
+          (deliveryRows || []).map((row) => [row.message_id, row]),
+        ),
+      );
+    } catch {
+      setDeliveries({});
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -109,28 +145,18 @@ export default function BroadcastPanel({ user }) {
         limit: 20,
       }),
       db.list("profiles"),
-      db.list("messages", { order: "created_date", asc: false, limit: 100 }),
+      loadSentMessages(),
     ])
-      .then(([announcementRows, userRows, messageRows]) => {
+      .then(([announcementRows, userRows]) => {
         if (!active) return;
         setAnnouncements(announcementRows);
         setUsers(userRows);
-        setSentMessages(messageRows);
       })
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, []);
-
-  const loadSentMessages = useCallback(async () => {
-    const rows = await db.list("messages", {
-      order: "created_date",
-      asc: false,
-      limit: 100,
-    });
-    setSentMessages(rows);
-  }, []);
+  }, [loadSentMessages]);
 
   const staffEmails = useMemo(
     () =>
@@ -168,8 +194,24 @@ export default function BroadcastPanel({ user }) {
         });
       }
     }
-    return [...groups.values()].slice(0, 10);
-  }, [sentMessages, isSuperAdmin, staffEmails, user?.email]);
+    return [...groups.values()].slice(0, 10).map((group) => {
+      const statuses = group.ids.map(
+        (id) => deliveries[id]?.status || "pending",
+      );
+      return {
+        ...group,
+        emailSent: statuses.filter((status) => status === "sent").length,
+        emailFailed: statuses.filter((status) => status === "failed").length,
+        emailSkipped: statuses.filter((status) => status === "skipped").length,
+        emailPending: statuses.filter(
+          (status) => status === "pending" || status === "sending",
+        ).length,
+        failedIds: group.ids.filter(
+          (id) => deliveries[id]?.status === "failed",
+        ),
+      };
+    });
+  }, [sentMessages, deliveries, isSuperAdmin, staffEmails, user?.email]);
 
   const deleteBatch = async (batch) => {
     try {
@@ -178,6 +220,30 @@ export default function BroadcastPanel({ user }) {
       toast.success("تم حذف الرسالة المُرسلة ✅");
     } catch {
       toast.error("مش قادر تحذف الرسالة دي");
+    }
+  };
+
+  const retryBatchEmails = async (batch) => {
+    if (!batch.failedIds.length || retryingKey) return;
+    setRetryingKey(batch.key);
+    try {
+      const result = await sendMessageEmails({
+        messageIds: batch.failedIds,
+      });
+      await loadSentMessages();
+      if (result.failed > 0) {
+        toast.warning(
+          `تمت إعادة المحاولة: ${result.sent} نجح و${result.failed} ما زال فاشلًا`,
+        );
+      } else {
+        toast.success(`تم إرسال ${result.sent} رسالة إلى البريد ✅`);
+      }
+    } catch (error) {
+      toast.error(
+        error?.message || "تعذر إعادة إرسال البريد. حاول مرة أخرى.",
+      );
+    } finally {
+      setRetryingKey("");
     }
   };
 
@@ -219,6 +285,64 @@ export default function BroadcastPanel({ user }) {
     setPathYear("all");
   };
 
+  const createBroadcast = async (recipients) => {
+    const emails = recipients.map((recipient) => recipient.email);
+    const payloadFingerprint = JSON.stringify({
+      title,
+      body,
+      path,
+      recipients: [...emails].sort(),
+    });
+    if (broadcastRef.current.fingerprint !== payloadFingerprint) {
+      broadcastRef.current = {
+        fingerprint: payloadFingerprint,
+        id: crypto.randomUUID(),
+      };
+    }
+    const { data: broadcastResult, error: broadcastError } = await supabase.rpc(
+      "send_broadcast_messages",
+      {
+        p_broadcast_id: broadcastRef.current.id,
+        p_from_email: user?.email || "",
+        p_from_name: user?.full_name || "Admin",
+        p_subject: title,
+        p_body: body,
+        p_path: path || null,
+        p_recipients: emails,
+      },
+    );
+    if (broadcastError) throw broadcastError;
+    const result = Array.isArray(broadcastResult)
+      ? broadcastResult[0]
+      : broadcastResult;
+    return {
+      id: broadcastRef.current.id,
+      requested: Number(result?.requested ?? emails.length) || emails.length,
+      inserted: Number(result?.inserted) || 0,
+      duplicates: Number(result?.duplicates) || 0,
+    };
+  };
+
+  const sendBroadcastEmail = async (broadcast) => {
+    setEmailProgress({
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      processed: 0,
+      total: broadcast.requested,
+    });
+    try {
+      const progress = await sendBroadcastEmails(broadcast.id, (next) =>
+        setEmailProgress(next),
+      );
+      return { progress, error: null };
+    } catch (error) {
+      return { progress: null, error };
+    } finally {
+      setEmailProgress(null);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (sendingRef.current) return;
@@ -231,19 +355,37 @@ export default function BroadcastPanel({ user }) {
     setSending(true);
     try {
       if (audience === "specific" && specificEmail) {
-        await db.create("messages", {
+        const message = await db.create("messages", {
           to_email: specificEmail,
           from_email: user?.email || "",
           from_name: user?.full_name || "Admin",
-          subject: title,
+          subject: title.trim(),
           body,
           read: false,
           path,
         });
+        let emailError = null;
+        try {
+          await sendMessageEmails({ messageIds: [message.id] });
+        } catch (error) {
+          emailError = error;
+        }
+        await loadSentMessages();
         resetForm();
-        toast.success(`تم إرسال الرسالة إلى ${specificEmail} ✅`);
+        if (emailError) {
+          toast.warning(
+            `اتحفظت الرسالة في إشعارات ${specificEmail}، لكن تعذر إرسال البريد: ${
+              emailError?.message || "خطأ غير معروف"
+            }`,
+          );
+        } else {
+          toast.success(
+            `تم إرسال الرسالة إلى ${specificEmail} على الموقع والبريد ✅`,
+          );
+        }
         return;
       }
+
       if (audience === "group") {
         const roles = targets.flatMap((target) => ROLE_BY_TARGET[target] || []);
         const recipients = users.filter(
@@ -253,49 +395,40 @@ export default function BroadcastPanel({ user }) {
           toast.error("مفيش مستخدمين بالدور المختار — ظبط أدوار الفريق الأول");
           return;
         }
-        const payloadFingerprint = JSON.stringify({
-          title,
-          body,
-          path,
-          recipients: recipients.map((recipient) => recipient.email).sort(),
-        });
-        if (broadcastRef.current.fingerprint !== payloadFingerprint) {
-          broadcastRef.current = {
-            fingerprint: payloadFingerprint,
-            id: crypto.randomUUID(),
-          };
-        }
-        const { data: broadcastResult, error: broadcastError } = await supabase.rpc(
-          "send_broadcast_messages",
-          {
-            p_broadcast_id: broadcastRef.current.id,
-            p_from_email: user?.email || "",
-            p_from_name: user?.full_name || "Admin",
-            p_subject: title,
-            p_body: body,
-            p_path: path || null,
-            p_recipients: recipients.map((recipient) => recipient.email),
-          },
-        );
-        if (broadcastError) throw broadcastError;
-        const result = Array.isArray(broadcastResult)
-          ? broadcastResult[0]
-          : broadcastResult;
-        const sent = Number(result?.inserted) || 0;
-        const duplicates = Number(result?.duplicates) || 0;
-        const failed =
-          Number(result?.requested ?? recipients.length) - sent - duplicates;
-        if (failed > 0) {
-          toast.error(
-            `تم إرسال ${sent} من ${recipients.length} رسالة. فشل إرسال ${failed} رسالة، أعد المحاولة للمتبقي فقط.`,
-          );
-          return;
-        }
-        broadcastRef.current = { fingerprint: "", id: "" };
+        const broadcast = await createBroadcast(recipients);
+        const { progress, error: emailError } =
+          await sendBroadcastEmail(broadcast);
+        await loadSentMessages();
         resetForm();
-        toast.success(`تم إرسال الرسالة إلى ${recipients.length} مستخدم ✅`);
+
+        if (emailError) {
+          toast.warning(
+            `تم حفظ ${broadcast.inserted} رسالة في الإشعارات، لكن تعذر إرسال البريد: ${
+              emailError?.message || "خطأ غير معروف"
+            }. تقدر تعيد المحاولة من سجل الرسائل.`,
+          );
+        } else if (progress && progress.failed > 0) {
+          toast.warning(
+            `تم الإرسال إلى ${progress.sent} مستخدم، وفشل بريد ${progress.failed}. أعد المحاولة من سجل الرسائل.`,
+          );
+        } else {
+          toast.success(
+            `تم إرسال الرسالة إلى ${progress?.sent ?? recipients.length} مستخدم على الموقع والبريد ✅`,
+          );
+          broadcastRef.current = { fingerprint: "", id: "" };
+        }
         return;
       }
+
+      const pathMajor = pathSection === "all" ? "" : pathSection;
+      const pathYearValue = pathYear === "all" ? "" : pathYear;
+      const recipients = users.filter((item) => {
+        if (item.disabled) return false;
+        if (pathMajor && item.major !== pathMajor) return false;
+        if (pathYearValue && item.year !== pathYearValue) return false;
+        return true;
+      });
+
       await db.create("announcements", {
         title,
         body,
@@ -305,13 +438,41 @@ export default function BroadcastPanel({ user }) {
         created_by: user?.email || "",
       });
       await loadAnnouncements();
+
+      if (recipients.length === 0) {
+        resetForm();
+        toast.info("تم نشر الإعلان، لكن مفيش مستخدمين مطابقين للمسار لإرسال بريد.");
+        return;
+      }
+
+      const broadcast = await createBroadcast(recipients);
+      const { progress, error: emailError } =
+        await sendBroadcastEmail(broadcast);
+      await loadSentMessages();
       resetForm();
-      toast.success("تم إرسال الإعلان لجميع المستخدمين ✓.");
+
+      if (emailError) {
+        toast.warning(
+          `تم نشر الإعلان وحفظ ${broadcast.inserted} إشعار، لكن تعذر إرسال البريد: ${
+            emailError?.message || "خطأ غير معروف"
+          }.`,
+        );
+      } else if (progress && progress.failed > 0) {
+        toast.warning(
+          `تم نشر الإعلان وإرسال ${progress.sent} بريد، وفشل ${progress.failed}. أعد المحاولة من سجل الرسائل.`,
+        );
+      } else {
+        toast.success(
+          `تم نشر الإعلان وإرساله إلى ${progress?.sent ?? recipients.length} مستخدم على الموقع والبريد ✅`,
+        );
+        broadcastRef.current = { fingerprint: "", id: "" };
+      }
     } catch (error) {
       toast.error(error?.message || "تعذر إرسال الرسائل. حاول مرة أخرى.");
     } finally {
       sendingRef.current = false;
       setSending(false);
+      setEmailProgress(null);
     }
   };
 
@@ -509,6 +670,7 @@ export default function BroadcastPanel({ user }) {
                   placeholder="مثال: موعد تسليم مشروع التخرج"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
+                  maxLength={200}
                   required
                   className="bg-input border-border"
                 />
@@ -525,6 +687,7 @@ export default function BroadcastPanel({ user }) {
                   }
                   value={body}
                   onChange={(event) => setBody(event.target.value)}
+                  maxLength={5000}
                   required
                   className="bg-input border-border min-h-[90px]"
                 />
@@ -549,13 +712,22 @@ export default function BroadcastPanel({ user }) {
           >
             <Send size={15} />
             {sending
-              ? "جاري الإرسال..."
+              ? emailProgress
+                ? `جاري إرسال البريد ${emailProgress.processed}/${emailProgress.total}...`
+                : "جاري الإرسال..."
               : audience === "specific"
                 ? "إرسال للمستخدم المحدد"
                 : audience === "group"
                   ? `إرسال إلى ${audienceLabel}`
                   : "نشر للجميع"}
           </Button>
+          {emailProgress && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] text-muted-foreground">
+              جاري إرسال البريد: {emailProgress.processed} من{" "}
+              {emailProgress.total} — نجح {emailProgress.sent}، فشل{" "}
+              {emailProgress.failed}.
+            </div>
+          )}
         </form>
         {announcements.length > 0 && (
           <div className="space-y-3">
@@ -711,6 +883,17 @@ export default function BroadcastPanel({ user }) {
                           ? "مستلم واحد"
                           : `${batch.ids.length} مستلم`}
                       </MetaChip>
+                      <MetaChip
+                        icon={batch.emailFailed > 0 ? MailWarning : Mail}
+                      >
+                        {batch.emailFailed > 0
+                          ? `البريد: ${batch.emailSent} نجح · ${batch.emailFailed} فشل`
+                          : batch.emailPending > 0
+                            ? `البريد: قيد الإرسال (${batch.emailSent}/${batch.ids.length})`
+                            : batch.emailSkipped > 0
+                              ? `البريد: ${batch.emailSent} نجح · ${batch.emailSkipped} متجاوز`
+                              : `البريد: ${batch.emailSent}/${batch.ids.length} تم`}
+                      </MetaChip>
                       {isSuperAdmin && batch.from_email && (
                         <MetaChip icon={Mail}>{batch.from_email}</MetaChip>
                       )}
@@ -727,6 +910,22 @@ export default function BroadcastPanel({ user }) {
                       )}
                     </div>
                   </div>
+                  {batch.failedIds.length > 0 && (
+                    <button
+                      onClick={() => retryBatchEmails(batch)}
+                      disabled={Boolean(retryingKey)}
+                      aria-label="إعادة إرسال البريد الفاشل"
+                      title="إعادة إرسال البريد الفاشل"
+                      className="shrink-0 p-1.5 text-amber-400 transition-colors hover:text-amber-300 disabled:opacity-50"
+                    >
+                      <RotateCw
+                        size={13}
+                        className={
+                          retryingKey === batch.key ? "animate-spin" : ""
+                        }
+                      />
+                    </button>
+                  )}
                   <button
                     onClick={() => deleteBatch(batch)}
                     aria-label="حذف الرسالة المرسلة"

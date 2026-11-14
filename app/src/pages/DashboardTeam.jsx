@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { db } from '@/lib/api'
+import { sendMessageEmails } from '@/lib/emailDelivery'
 import { useAuth } from '@/lib/AuthContext'
 import EditRoleDialog from '@/components/team/EditRoleDialog'
 import InviteMemberCard from '@/components/team/InviteMemberCard'
@@ -26,6 +27,9 @@ export default function DashboardTeam() {
   const [editSemester, setEditSemester] = useState('')
   const [savingId, setSavingId] = useState(null)
   const [messageUser, setMessageUser] = useState(null)
+  const [messageSubject, setMessageSubject] = useState(
+    'رسالة من فريق Dev Academy',
+  )
   const [messageBody, setMessageBody] = useState('')
   const [sending, setSending] = useState(false)
   const inviteRef = useRef(false)
@@ -120,21 +124,33 @@ export default function DashboardTeam() {
 
   const handleOpenMessage = (member) => {
     setMessageUser(member)
+    setMessageSubject('رسالة من فريق Dev Academy')
+    setMessageBody('')
+  }
+
+  const handleCloseMessage = () => {
+    setMessageUser(null)
+    setMessageSubject('رسالة من فريق Dev Academy')
     setMessageBody('')
   }
 
   const handleSendMessage = async () => {
     if (messageRef.current) return
-    if (!messageUser || !messageBody.trim()) return
+    const subject = messageSubject.trim()
+    const body = messageBody.trim()
+    if (!messageUser || !subject || !body) return
     messageRef.current = true
     setSending(true)
+
+    let message
     try {
-      await db.create('messages', {
+      message = await db.create('messages', {
         to_email: messageUser.email,
         from_email: user?.email || '',
-        from_name: profile?.full_name || user?.user_metadata?.full_name || 'Admin',
-        subject: 'Message from Admin',
-        body: messageBody,
+        from_name:
+          profile?.full_name || user?.user_metadata?.full_name || 'Admin',
+        subject,
+        body,
         read: false,
       })
     } catch (error) {
@@ -143,11 +159,29 @@ export default function DashboardTeam() {
       setSending(false)
       return
     }
-    toast.success(
-      `✅ اتحفظت في إشعارات ${messageUser.email} — تنبيه البريد مش مفعّل حاليًا`,
-    )
-    setMessageUser(null)
-    setMessageBody('')
+
+    try {
+      const result = await sendMessageEmails({ messageIds: [message.id] })
+      if (result.sent > 0) {
+        toast.success(
+          `✅ تم إرسال الرسالة إلى بريد ${messageUser.email} وإشعارات الموقع`,
+        )
+        handleCloseMessage()
+      } else {
+        toast.warning(
+          `اتحفظت في إشعارات ${messageUser.email}، لكن البريد لم يُرسل. تقدر تعيد المحاولة من سجل الرسائل.`,
+        )
+        handleCloseMessage()
+      }
+    } catch (error) {
+      toast.warning(
+        `اتحفظت في إشعارات ${messageUser.email}، لكن تعذر إرسال البريد: ${
+          error?.message || 'خطأ غير معروف'
+        }`,
+      )
+      handleCloseMessage()
+    }
+
     messageRef.current = false
     setSending(false)
   }
@@ -197,11 +231,17 @@ export default function DashboardTeam() {
 
       <SendMessageDialog
         user={messageUser}
+        subject={messageSubject}
         body={messageBody}
+        senderName={
+          profile?.full_name || user?.user_metadata?.full_name || 'فريق Dev Academy'
+        }
+        senderEmail={user?.email || ''}
         sending={sending}
+        onSubjectChange={setMessageSubject}
         onBodyChange={setMessageBody}
         onSend={handleSendMessage}
-        onClose={() => setMessageUser(null)}
+        onClose={handleCloseMessage}
       />
 
       <RemoveUserDialog

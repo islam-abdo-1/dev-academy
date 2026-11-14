@@ -32,6 +32,7 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 - **Material ratings** — signed-in users can like or dislike official lecture items, section items, and resources; one vote per user and clicking the same reaction removes it. Public pages show aggregate counts only, while staff see voter identities and can review low-rated materials from the dashboard.
 - **Staff tracks** — admins are grouped by major and academic year, with each member's term shown inside the group. The dashboard highlights the current admin's own group; super admins can edit any track while regular admins can edit their own.
 - **Staff dashboard** — subjects, resources, tracks, material ratings, team roles, publish requests, and storage administration. Members must sign in with Google before an admin can assign their role.
+- **Team messages with real email** — staff can message one member, a group, or everyone. Every message is stored as an in-app notification and mirrored by email; an email failure never drops the internal message, and failed deliveries can be retried from the broadcast panel.
 - **Arabic RTL UI** — responsive layout, dark theme, accessible keyboard navigation.
 - **Storage split** — Supabase for auth/DB/legacy media/avatars; Hugging Face private bucket (through a Cloudflare Worker and same-origin Pages Function) for personal study files, with per-user quotas and reservation-based accounting.
 - **Privacy-friendly analytics** — Cloudflare Web Analytics for visitors plus an in-app admin summary for registered users and daily activity.
@@ -44,7 +45,7 @@ Dev Academy (ديف أكاديمي) brings scattered course material into one or
 | Auth / Database | Supabase Auth + Postgres with Row Level Security |
 | File storage | Supabase Storage (legacy media/avatars), Hugging Face private bucket via Cloudflare Worker + Pages Function |
 | Edge API | Cloudflare Workers (`workers/hf-upload`) with `aws4fetch` |
-| Email | Supabase Email provider disabled; Google OAuth only (legacy break-glass disabled in production) |
+| Email | Supabase Auth Email provider disabled; staff-message email through the Gmail API (Brevo/Resend fallbacks) via a Pages Function |
 | Hosting | Cloudflare Pages |
 | Analytics | Cloudflare Web Analytics |
 
@@ -100,6 +101,8 @@ Copy examples only; never commit real values.
   - `SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY` (Worker secret only)
   - `ALLOWED_ORIGINS`
+  - `EMAIL_PROVIDER` (`gmail`, `brevo`, or `resend`), `EMAIL_FROM`, `SITE_URL`
+  - `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` when using Gmail
 - root `.env.example` (local scripts only)
   - Supabase management/seed variables, Hugging Face export variables, Cloudflare deploy variables.
   - `TURNSTILE_SECRET_KEY` for Supabase Auth captcha configuration.
@@ -131,6 +134,18 @@ npm run deploy
 
 Then set `VITE_HF_UPLOAD_WORKER_URL` in `app/.env` to the deployed Worker URL.
 
+### Email delivery
+
+Team messages are written to `messages` first, then a Pages Function (`/api/send-message-email`) mirrors them by email and records state in `message_email_deliveries` (service-role writes; staff-only reads). The default provider is the **Gmail API** because a free Gmail account can send about 500 recipients/day without owning a domain, and mail lands in the inbox rather than spam.
+
+1. In Google Cloud, enable the Gmail API and configure the OAuth consent screen.
+2. Add `https://www.googleapis.com/auth/gmail.send` to Data Access.
+3. Create an OAuth client of type **Desktop app**.
+4. Authorize with `redirect_uri=http://localhost` and `access_type=offline`, then exchange the code at `https://oauth2.googleapis.com/token` for a refresh token.
+5. Set `EMAIL_PROVIDER=gmail`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, and `EMAIL_FROM=Dev Academy <your-account@gmail.com>` as Pages runtime variables.
+
+The endpoint refreshes the access token automatically, sends one RFC 822 `multipart/alternative` message per recipient (Arabic HTML plus plain text), retries rate limits, and marks each delivery `sent` or `failed`. `Brevo` and `Resend` remain selectable with `EMAIL_PROVIDER`; `MAX_BATCH` is 50 messages per call and the client pages through a broadcast.
+
 ## Build & Deploy
 
 ```bash
@@ -146,7 +161,7 @@ Cloudflare Pages settings:
 - Build command: `npm run build`
 - Output directory: `dist`
 - Build-time `VITE_*` values come from `app/.env` (gitignored) and are baked into the bundle.
-- The Pages dashboard holds the runtime variables used by the Pages Function (`HF_*`, `SUPABASE_*`, `ALLOWED_ORIGINS`); it does not need the `VITE_*` values while deploys are manual.
+- The Pages dashboard holds the runtime variables used by the Pages Function (`HF_*`, `SUPABASE_*`, `ALLOWED_ORIGINS`, and the email variables); it does not need the `VITE_*` values while deploys are manual.
 - Production uses `VITE_ENABLE_LEGACY_LOGIN=false`; `/legacy-login` redirects to `/login`. The route remains `noindex, nofollow` and unlinked. Do not re-enable it unless the Email provider is also re-enabled deliberately.
 
 ### Deploying (manual, clean commit only)
