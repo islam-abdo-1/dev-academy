@@ -214,7 +214,13 @@ export function materialFromSavedItem(item: SavedItem | any): Material {
 }
 
 export function materialFromResource(resource: any): Material {
-  const fileType = resource.type || "link";
+  const urlExt = (resource.url || "").split(/[?#]/)[0].match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toLowerCase();
+  // When a URL is pasted directly its type defaults to "link"; infer the real
+  // file type from the URL extension so previews/downloads behave correctly.
+  const fileType =
+    resource.type && resource.type !== "link"
+      ? resource.type
+      : urlExt || "link";
   return {
     id: String(resource.id),
     source: "resource",
