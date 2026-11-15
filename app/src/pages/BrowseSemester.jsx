@@ -38,7 +38,7 @@ export default function BrowseSemester() {
     setLoading(true);
     setError(false);
     return db
-      .list("subjects")
+      .list("subject_catalog")
       .then((data) => setSubjects(data || []))
       .catch(() => {
         setSubjects([]);
@@ -49,7 +49,7 @@ export default function BrowseSemester() {
 
   useEffect(() => {
     let cancelled = false;
-    db.list("subjects")
+    db.list("subject_catalog")
       .then((data) => {
         if (!cancelled) setSubjects(data || []);
       })

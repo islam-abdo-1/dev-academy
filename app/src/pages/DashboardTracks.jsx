@@ -167,7 +167,7 @@ export default function DashboardTracks() {
     try {
       const [staffRows, subjectRows] = await Promise.all([
         db.filter("profiles", { role: ["admin", "super_admin"] }),
-        db.list("subjects"),
+        db.list("subject_catalog"),
       ]);
       setMembers((staffRows || []).filter((member) => !member.disabled));
       setSubjects(subjectRows || []);

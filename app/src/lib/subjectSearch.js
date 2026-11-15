@@ -34,12 +34,20 @@ function scoreToken(subject, token) {
     if (value > best) best = value;
   };
 
-  const code = compactCode(subject.code);
   const compactToken = token.replace(/[\s-]+/g, "");
-  if (code && compactToken) {
-    if (code === compactToken) bump(130);
-    else if (compactToken.length >= 2 && code.startsWith(compactToken)) bump(110);
-    else if (compactToken.length >= 3 && code.includes(compactToken)) bump(60);
+  const codes = [
+    subject.code,
+    ...(Array.isArray(subject.placements)
+      ? subject.placements.map((placement) => placement.code)
+      : []),
+  ].filter(Boolean);
+  for (const codeValue of codes) {
+    const code = compactCode(codeValue);
+    if (code && compactToken) {
+      if (code === compactToken) bump(130);
+      else if (compactToken.length >= 2 && code.startsWith(compactToken)) bump(110);
+      else if (compactToken.length >= 3 && code.includes(compactToken)) bump(60);
+    }
   }
 
   const name = normalizeText(subject.name);

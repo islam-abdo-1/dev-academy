@@ -12,7 +12,7 @@ import {
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/AuthContext";
-import { isWorkerFileUrl } from "@/lib/workerUrl";
+import { isWorkerFileUrl, normalizeWorkerFileUrl } from "@/lib/workerUrl";
 import type { Material } from "@/components/material/types";
 
 const MaterialViewerDialog = lazy(() =>
@@ -63,11 +63,12 @@ export function MaterialViewerProvider({ children }: { children: React.ReactNode
         return;
       }
 
-      if (material.source !== "personal" || !isWorkerFileUrl(material.url)) {
+      const fileUrl = normalizeWorkerFileUrl(material.url);
+      if (!isWorkerFileUrl(fileUrl)) {
         requestRef.current += 1;
         setPreparingMaterial(null);
         releaseActiveBlob();
-        setActiveMaterial(material);
+        setActiveMaterial({ ...material, url: fileUrl });
         return;
       }
 
@@ -75,7 +76,7 @@ export function MaterialViewerProvider({ children }: { children: React.ReactNode
       setPreparingMaterial(material);
 
       import("@/lib/storage/hfWorker")
-        .then(({ authorizedFileBlobUrl }) => authorizedFileBlobUrl(material.url))
+        .then(({ storedFileBlobUrl }) => storedFileBlobUrl(fileUrl))
         .then((blobUrl) => {
           if (requestId !== requestRef.current) {
             URL.revokeObjectURL(blobUrl);

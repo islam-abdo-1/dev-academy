@@ -48,7 +48,22 @@ export default function SubjectCard({ subject, info }) {
           <BookOpen size={18} style={{ color: info.color }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-foreground font-semibold">{subject.name}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-foreground font-semibold">{subject.name}</p>
+            {subject.placement_count > 1 && (
+              <span
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                style={{ color: info.color, background: 'hsla(190,100%,50%,0.08)' }}
+              >
+                مشتركة
+              </span>
+            )}
+            {subject.code && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {subject.code}
+              </span>
+            )}
+          </div>
           {subject.description && (
             <p className="text-muted-foreground text-sm truncate mt-0.5">{subject.description}</p>
           )}

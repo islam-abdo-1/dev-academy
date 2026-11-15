@@ -1,4 +1,4 @@
-import { isWorkerFileUrl } from "@/lib/workerUrl";
+import { isWorkerFileUrl, normalizeWorkerFileUrl } from "@/lib/workerUrl";
 
 export type PreviewKind =
   | "pdf"
@@ -145,7 +145,7 @@ export function isStorageFile(item: PreviewItem): boolean {
 }
 
 export function downloadHref(item: PreviewItem): string {
-  const url = safeHttpUrl(item.url);
+  const url = safeHttpUrl(normalizeWorkerFileUrl(item.url));
   if (!url) return "";
   const separator = url.includes("?") ? "&" : "?";
   if (HF_FILE_PATTERN.test(url)) {

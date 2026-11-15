@@ -70,6 +70,42 @@ export function proxiedFileUrl(path: string): string | null {
   return url.toString();
 }
 
+/**
+ * Converts legacy direct Worker file links (`/file/<path>`) to the
+ * authenticated Pages proxy (`/api/hf-file/<path>`).
+ */
+export function normalizeWorkerFileUrl(value?: string | null): string {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  const base = workerBase();
+  if (!base) return raw;
+  try {
+    const url = new URL(raw);
+    if (url.origin !== base.origin || !url.pathname.startsWith("/file/")) {
+      return raw;
+    }
+    const encoded = url.pathname.slice("/file/".length);
+    if (!encoded) return raw;
+    let path: string;
+    try {
+      path = encoded.split("/").map(decodeURIComponent).join("/");
+    } catch {
+      return raw;
+    }
+    const proxied = proxiedFileUrl(path);
+    if (!proxied) return raw;
+    const share = url.searchParams.get("share");
+    if (share) {
+      const next = new URL(proxied);
+      next.searchParams.set("share", share);
+      return next.toString();
+    }
+    return proxied;
+  } catch {
+    return raw;
+  }
+}
+
 export function withWorkerShareToken(
   value: string | null | undefined,
   token: string,

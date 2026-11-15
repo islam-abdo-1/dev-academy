@@ -1,5 +1,9 @@
 import { supabase } from "@/lib/supabase";
-import { isWorkerFileUrl, proxiedFileUrl } from "@/lib/workerUrl";
+import {
+  isWorkerFileUrl,
+  normalizeWorkerFileUrl,
+  proxiedFileUrl,
+} from "@/lib/workerUrl";
 
 export const MAX_HF_FILE_BYTES = 90 * 1024 * 1024;
 
@@ -50,21 +54,75 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` };
 }
 
-export async function authorizedFileBlobUrl(
+async function optionalAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Fetches a stored file with the current session when needed.
+ * Public files and share-token links work without a session.
+ */
+export async function fetchStoredFile(
+  url: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const normalized = normalizeWorkerFileUrl(url);
+  if (!isWorkerFileUrl(normalized)) return fetch(normalized, init);
+
+  const headers = new Headers(init.headers);
+  const auth = await optionalAuthHeaders();
+  if (auth.Authorization && !headers.has("Authorization")) {
+    headers.set("Authorization", auth.Authorization);
+  }
+  return fetch(normalized, { ...init, headers });
+}
+
+export async function storedFileBlobUrl(
   url: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!isWorkerFileUrl(url)) {
+  const normalized = normalizeWorkerFileUrl(url);
+  if (!isWorkerFileUrl(normalized)) {
     throw new Error("رابط ملف غير صالح.");
   }
-  const headers = await authHeaders();
-  const response = await fetch(url, { headers, signal });
+  const response = await fetchStoredFile(normalized, { signal });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     throw new Error(parseWorkerError(response.status, body));
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);
+}
+
+export async function downloadStoredFile(
+  url: string,
+  filename?: string | null,
+): Promise<void> {
+  const normalized = normalizeWorkerFileUrl(url);
+  if (!isWorkerFileUrl(normalized)) {
+    throw new Error("رابط ملف غير صالح.");
+  }
+  const response = await fetchStoredFile(normalized);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(parseWorkerError(response.status, body));
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = (filename || "").trim() || "file";
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
 }
 
 function parseWorkerError(status: number, body: string): string {

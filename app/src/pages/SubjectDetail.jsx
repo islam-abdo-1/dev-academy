@@ -7,8 +7,11 @@ import ChapterCard from '@/components/subjects/ChapterCard'
 import ChapterDialog from '@/components/subjects/ChapterDialog'
 import ConfirmDialog from '@/components/subjects/ConfirmDialog'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { db } from '@/lib/api'
+import { placementsForSubject } from '@/lib/subjects'
+import { MAJOR_LABELS, YEAR_LABELS, SEMESTER_LABELS } from '@/components/subjects/labels'
 import { useAsyncGuard } from '@/lib/useAsyncGuard'
 
 export default function SubjectDetail() {
@@ -18,6 +21,7 @@ export default function SubjectDetail() {
   const [deletingChapter, setDeletingChapter] = useState(null)
   const [subject, setSubject] = useState(null)
   const [subjectLoading, setSubjectLoading] = useState(true)
+  const [placements, setPlacements] = useState([])
   const [chapters, setChapters] = useState([])
   const [chaptersLoading, setChaptersLoading] = useState(true)
   const { run, busy } = useAsyncGuard()
@@ -26,7 +30,11 @@ export default function SubjectDetail() {
     if (!subjectId) return
     setSubjectLoading(true)
     const data = await db.get('subjects', subjectId)
+    const placementRows = await db
+      .filter('subject_placements', { subject_id: subjectId }, { order: 'sort_order' })
+      .catch(() => [])
     setSubject(data)
+    setPlacements(placementsForSubject(data, placementRows || []))
     setSubjectLoading(false)
   }, [subjectId])
 
@@ -111,6 +119,24 @@ export default function SubjectDetail() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{subject?.name}</h1>
           {subject?.description && <p className="text-muted-foreground mt-1">{subject.description}</p>}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {placements.length === 0 ? (
+              <Badge variant="outline" className="text-xs">بدون مسار</Badge>
+            ) : (
+              placements.map((placement) => (
+                <Badge
+                  key={placement.id || `${placement.major}-${placement.year}-${placement.semester}`}
+                  variant="outline"
+                  className="text-xs"
+                >
+                  {MAJOR_LABELS[placement.major] || placement.major} ·{' '}
+                  {YEAR_LABELS[placement.year] || placement.year} ·{' '}
+                  {SEMESTER_LABELS[placement.semester] || placement.semester}
+                  {placement.code ? ` · ${placement.code}` : ''}
+                </Badge>
+              ))
+            )}
+          </div>
         </div>
         <Button onClick={handleAddChapter} className="bg-primary text-primary-foreground hover:brightness-110">
           <Plus size={18} className="mr-2" /> Add Chapter

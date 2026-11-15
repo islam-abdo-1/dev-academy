@@ -1,5 +1,6 @@
 import type { PersonalFile, SavedItem, ShareScope } from "@/types/user";
 import { safeHttpUrl } from "@/lib/materialPreview";
+import { normalizeWorkerFileUrl } from "@/lib/workerUrl";
 
 export type MaterialSource =
   | "official"
@@ -63,7 +64,8 @@ export interface Material {
   scope?: ShareScope;
 }
 
-const cleanUrl = (value?: string | null) => safeHttpUrl(value);
+const cleanUrl = (value?: string | null) =>
+  normalizeWorkerFileUrl(safeHttpUrl(value));
 
 export function materialFromOfficial(
   item: any,

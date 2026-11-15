@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import {
   BookmarkPlus,
   Download,
   ExternalLink,
+  Loader2,
   Maximize2,
   Minimize2,
   Share2,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MaterialPreview } from "@/components/material/MaterialPreview";
 import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
@@ -19,6 +21,8 @@ import {
   safeHttpUrl,
 } from "@/lib/materialPreview";
 import { getMaterialRatingTarget } from "@/lib/materialRatings";
+import { downloadStoredFile } from "@/lib/storage/hfWorker";
+import { isWorkerFileUrl } from "@/lib/workerUrl";
 import type { Material } from "@/components/material/types";
 
 interface MaterialViewerDialogProps {
@@ -37,6 +41,7 @@ export function MaterialViewerDialog({
   inactive = false,
 }: MaterialViewerDialogProps) {
   const [expanded, setExpanded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     setExpanded(false);
@@ -70,6 +75,18 @@ export function MaterialViewerDialog({
     declaredDownload ||
     (isStorageFile(material) ? downloadHref(material) : safeUrl);
   const showDownload = material.canDownload !== false && Boolean(downloadUrl);
+  const handleDownload = async (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isWorkerFileUrl(downloadUrl)) return;
+    event.preventDefault();
+    setDownloading(true);
+    try {
+      await downloadStoredFile(downloadUrl, material.title);
+    } catch {
+      toast.error("تعذر تحميل الملف. حاول مرة أخرى.");
+    } finally {
+      setDownloading(false);
+    }
+  };
   const sourceLabel =
     material.source === "shared"
       ? "مشاركة عامة"
@@ -180,8 +197,14 @@ export function MaterialViewerDialog({
                   rel="noopener noreferrer"
                   title="تحميل"
                   aria-label="تحميل"
+                  aria-busy={downloading}
+                  onClick={handleDownload}
                 >
-                  <Download className="h-4 w-4" />
+                  {downloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
                   <span className="hidden sm:inline">تحميل</span>
                 </a>
               </Button>

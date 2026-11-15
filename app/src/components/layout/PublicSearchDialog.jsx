@@ -29,7 +29,7 @@ export default function PublicSearchDialog({ open, onClose }) {
   const loadData = async () => {
     setLoading(true);
     const [subjectRows, resourceRows] = await Promise.all([
-      db.list("subjects"),
+      db.list("subject_catalog"),
       db.list("resources"),
     ]).catch(() => [[], []]);
     setSubjects(subjectRows || []);
@@ -166,7 +166,7 @@ export default function PublicSearchDialog({ open, onClose }) {
               </p>
               {filteredSubjects.map((subject) => (
                 <button
-                  key={subject.id}
+                  key={subject.placement_id || subject.id}
                   onClick={() => handleSelect(subject)}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary/10 transition-colors text-left"
                 >
@@ -182,6 +182,7 @@ export default function PublicSearchDialog({ open, onClose }) {
                         MAJOR_LABELS[subject.major],
                         YEAR_LABELS[subject.year],
                         SEMESTER_LABELS[subject.semester],
+                        subject.code,
                       ]
                         .filter(Boolean)
                         .join(" → ")}

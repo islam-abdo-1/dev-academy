@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type MouseEvent } from "react";
 import { ExternalLink, FileQuestion, Loader2, Music } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   downloadHref,
@@ -13,6 +14,8 @@ import {
   type PreviewItem,
 } from "@/lib/materialPreview";
 import { parseDriveUrl, toEmbedUrl } from "@/utils/drive";
+import { downloadStoredFile, fetchStoredFile } from "@/lib/storage/hfWorker";
+import { isWorkerFileUrl } from "@/lib/workerUrl";
 import { PreviewStatus } from "@/components/material/PreviewStatus";
 import type { Material } from "@/components/material/types";
 
@@ -27,23 +30,23 @@ function TextPreview({ material }: { material: Material }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setText(null);
     setError(null);
-    fetch(material.url)
+    fetchStoredFile(material.url, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("fetch failed");
         return response.text();
       })
       .then((value) => {
-        if (!cancelled) setText(value);
+        if (!controller.signal.aborted) setText(value);
       })
       .catch(() => {
-        if (!cancelled) setError("تعذر تحميل محتوى الملف. جرّب فتحه في نافذة جديدة.");
+        if (!controller.signal.aborted) {
+          setError("تعذر تحميل محتوى الملف. جرّب فتحه في نافذة جديدة.");
+        }
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [material.url]);
 
   if (error) return <PreviewStatus error={error} />;
@@ -66,23 +69,23 @@ function HtmlPreview({ material }: { material: Material }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setHtml(null);
     setError(null);
-    fetch(material.url)
+    fetchStoredFile(material.url, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("fetch failed");
         return response.text();
       })
       .then((value) => {
-        if (!cancelled) setHtml(value);
+        if (!controller.signal.aborted) setHtml(value);
       })
       .catch(() => {
-        if (!cancelled) setError("تعذر تحميل صفحة HTML داخل المنصة.");
+        if (!controller.signal.aborted) {
+          setError("تعذر تحميل صفحة HTML داخل المنصة.");
+        }
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [material.url]);
 
   if (error) return <PreviewStatus error={error} />;
@@ -257,16 +260,39 @@ function ExternalFallback({ material }: { material: Material }) {
 }
 
 function FallbackDownload({ material }: { material: Material }) {
+  const [busy, setBusy] = useState(false);
   const href = isStorageFile(material)
     ? downloadHref(material as PreviewItem)
     : safeHttpUrl(material.downloadUrl || material.url);
+
+  const handleDownload = async (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isWorkerFileUrl(href)) return;
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await downloadStoredFile(href, material.title);
+    } catch {
+      toast.error("تعذر تحميل الملف. حاول مرة أخرى.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
       <FileQuestion className="h-12 w-12 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">هذا النوع غير مدعوم للمعاينة.</p>
       {material.canDownload && href && (
         <Button asChild variant="outline">
-          <a href={href} download target="_blank" rel="noopener noreferrer">
+          <a
+            href={href}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleDownload}
+            aria-busy={busy}
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             تحميل الملف
           </a>
         </Button>

@@ -22,8 +22,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { searchSubjects } from "@/lib/subjectSearch";
+import {
+  isSharedSubject,
+  listSubjectsWithPlacements,
+} from "@/lib/subjects";
 import { useAsyncGuard } from "@/lib/useAsyncGuard";
 
 export default function DashboardSubjects() {
@@ -41,7 +46,7 @@ export default function DashboardSubjects() {
   const loadSubjects = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await db.list("subjects");
+      const data = await listSubjectsWithPlacements();
       setSubjects(data);
     } catch (error) {
       if (error?.name !== "AbortError") {
@@ -67,22 +72,31 @@ export default function DashboardSubjects() {
 
   const handleSave = (data) =>
     run(async () => {
-      const payload = {
-        ...data,
-        credits: data.credits ? Number(data.credits) : undefined,
-      };
-      if (editingSubject) {
-        await db.update("subjects", editingSubject.id, payload);
+      try {
+        const { placements, ...fields } = data;
+        const { error } = await supabase.rpc(
+          "save_subject_with_placements",
+          {
+            p_subject_id: editingSubject?.id || null,
+            p_subject: {
+              ...fields,
+              is_sample: editingSubject?.is_sample || false,
+            },
+            p_placements: placements,
+          },
+        );
+        if (error) throw error;
         await loadSubjects();
-        logActivity("Updated subject", payload.name);
+        logActivity(
+          editingSubject ? "Updated subject" : "Created subject",
+          fields.name,
+        );
         closeDialog();
-        toast.success("Subject updated");
-      } else {
-        await db.create("subjects", payload);
-        await loadSubjects();
-        logActivity("Created subject", payload.name);
-        closeDialog();
-        toast.success("Subject created");
+        toast.success(
+          editingSubject ? "Subject updated" : "Subject created",
+        );
+      } catch (error) {
+        toast.error(error?.message || "Failed to save subject");
       }
     });
 
@@ -188,20 +202,31 @@ export default function DashboardSubjects() {
                   {subject.description}
                 </p>
                 <div className="flex flex-wrap gap-1 mb-3">
-                  {subject.major && (
-                    <Badge variant="outline" className="text-xs">
-                      {MAJOR_LABELS[subject.major] || subject.major}
+                  {isSharedSubject(subject) && (
+                    <Badge className="text-xs bg-primary/10 text-primary border-primary/20">
+                      مادة مشتركة
                     </Badge>
                   )}
-                  {subject.year && (
+                  {(subject.placements || []).length === 0 ? (
                     <Badge variant="outline" className="text-xs">
-                      {YEAR_LABELS[subject.year] || subject.year}
+                      بدون مسار
                     </Badge>
-                  )}
-                  {subject.semester && (
-                    <Badge variant="outline" className="text-xs">
-                      {SEMESTER_LABELS[subject.semester] || subject.semester}
-                    </Badge>
+                  ) : (
+                    (subject.placements || []).map((placement) => (
+                      <Badge
+                        key={
+                          placement.id ||
+                          `${placement.major}-${placement.year}-${placement.semester}`
+                        }
+                        variant="outline"
+                        className="text-xs"
+                      >
+                        {MAJOR_LABELS[placement.major] || placement.major} ·{" "}
+                        {YEAR_LABELS[placement.year] || placement.year} ·{" "}
+                        {SEMESTER_LABELS[placement.semester] || placement.semester}
+                        {placement.code ? ` · ${placement.code}` : ""}
+                      </Badge>
+                    ))
                   )}
                   {subject.credits && (
                     <Badge className="text-xs bg-primary/10 text-primary border-primary/20">

@@ -7,6 +7,7 @@ import {
   Image,
   LayoutTemplate,
   Link,
+  LoaderCircle,
   Pencil,
   Plus,
   Presentation,
@@ -52,6 +53,8 @@ import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
 import { materialFromResource } from "@/components/material/types";
 import { useMaterialViewer } from "@/components/material/MaterialViewerProvider";
 import { downloadHref, isStorageFile } from "@/lib/materialPreview";
+import { downloadStoredFile } from "@/lib/storage/hfWorker";
+import { isWorkerFileUrl } from "@/lib/workerUrl";
 
 const TYPE_META = {
   pdf: { label: "PDF", icon: FileText, color: "text-red-400" },
@@ -103,6 +106,7 @@ export default function DashboardResources() {
   const [resources, setResources] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
   const { run, busy } = useAsyncGuard();
   const { openMaterial } = useMaterialViewer();
 
@@ -162,6 +166,10 @@ export default function DashboardResources() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (!form.title.trim()) {
+      toast.error("Enter a resource title first");
+      return;
+    }
     if (!form.url.trim()) {
       toast.error("Upload a file or paste a URL first");
       return;
@@ -196,6 +204,20 @@ export default function DashboardResources() {
         toast.error(error?.message || "Failed to save resource");
       }
     });
+  };
+
+  const handleDownload = async (event, resource) => {
+    const href = downloadHref(resource);
+    if (!isWorkerFileUrl(href)) return;
+    event.preventDefault();
+    setDownloadingId(resource.id);
+    try {
+      await downloadStoredFile(href, resource.title);
+    } catch {
+      toast.error("Failed to download the file");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleDelete = () =>
@@ -339,9 +361,17 @@ export default function DashboardResources() {
                       title="تحميل الملف"
                       aria-label={`تحميل ${resource.title}`}
                       className="p-2 text-muted-foreground hover:text-primary min-w-[44px] min-h-[44px] flex items-center justify-center"
-                      onClick={(event) => event.stopPropagation()}
+                      aria-busy={downloadingId === resource.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDownload(event, resource);
+                      }}
                     >
-                      <Download size={14} />
+                      {downloadingId === resource.id ? (
+                        <LoaderCircle size={14} className="animate-spin" />
+                      ) : (
+                        <Download size={14} />
+                      )}
                     </a>
                   )}
                   {canManage(resource) && (
@@ -411,8 +441,18 @@ export default function DashboardResources() {
                 Upload a file or paste a URL
               </p>
               <FileUpload
-                onFileUploaded={(url, uploadedType) =>
-                  setForm({ ...form, url, type: uploadedType || "pdf" })
+                onFileUploaded={(url, uploadedType, fileName) =>
+                  setForm((prev) => {
+                    const fallbackTitle = (fileName || "")
+                      .replace(/\.[^.]+$/, "")
+                      .trim();
+                    return {
+                      ...prev,
+                      url,
+                      type: uploadedType || prev.type || "pdf",
+                      title: prev.title.trim() ? prev.title : fallbackTitle,
+                    };
+                  })
                 }
               />
               <div className="flex items-center gap-2 text-muted-foreground text-xs">

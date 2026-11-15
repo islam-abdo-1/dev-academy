@@ -39,6 +39,23 @@ interface StorageObjectRow {
   user_id: string;
 }
 
+interface ContentFileRow {
+  id: string;
+  url: string | null;
+}
+
+interface ContentOwner {
+  table: "resources" | "lecture_items" | "section_items";
+  resourceType: "resource" | "lecture_item" | "section_item";
+  id: string;
+}
+
+const CONTENT_TABLES: Array<Pick<ContentOwner, "table" | "resourceType">> = [
+  { table: "resources", resourceType: "resource" },
+  { table: "lecture_items", resourceType: "lecture_item" },
+  { table: "section_items", resourceType: "section_item" },
+];
+
 const PREFIX = "/api/hf-file/";
 const DEFAULT_SUPABASE_URL = "https://uytyvnoqhqivvhujdxoc.supabase.co";
 const DEFAULT_HF_NAMESPACE = "devacademy-fcai";
@@ -208,6 +225,23 @@ function isOwnedObjectPath(ownerId: string, key: string): boolean {
   );
 }
 
+async function findActiveShareToken(
+  env: Env,
+  share: string,
+): Promise<ShareTokenRow | null> {
+  if (share.length < 16 || share.length > 128) return null;
+  const rows = await restAsService<ShareTokenRow[]>(
+    env,
+    `share_tokens?token=eq.${encodeURIComponent(share)}&select=resource_type,resource_id,permission,expires_at&limit=1`,
+  );
+  const token = rows?.[0] ?? null;
+  if (!token) return null;
+  if (token.expires_at && new Date(token.expires_at).getTime() <= Date.now()) {
+    return null;
+  }
+  return token;
+}
+
 async function canReadPersonalFile(
   env: Env,
   request: Request,
@@ -217,33 +251,16 @@ async function canReadPersonalFile(
   if (file.is_public) return;
 
   const share = (url.searchParams.get("share") || "").trim();
-  if (share.length >= 16 && share.length <= 128) {
-    const rows = await restAsService<ShareTokenRow[]>(
+  const token = await findActiveShareToken(env, share);
+  if (token?.resource_type === "file" && token.resource_id === file.id) {
+    return;
+  }
+  if (token?.resource_type === "list") {
+    const items = await restAsService<{ id: string }[]>(
       env,
-      `share_tokens?token=eq.${encodeURIComponent(share)}&select=resource_type,resource_id,permission,expires_at&limit=1`,
+      `user_saved_items?list_id=eq.${encodeURIComponent(token.resource_id)}&personal_file_id=eq.${encodeURIComponent(file.id)}&select=id&limit=1`,
     );
-    const token = rows?.[0];
-    const active = Boolean(
-      token &&
-        (!token.expires_at || new Date(token.expires_at).getTime() > Date.now()),
-    );
-
-    if (
-      active &&
-      token &&
-      token.resource_type === "file" &&
-      token.resource_id === file.id
-    ) {
-      return;
-    }
-
-    if (active && token && token.resource_type === "list") {
-      const items = await restAsService<{ id: string }[]>(
-        env,
-        `user_saved_items?list_id=eq.${encodeURIComponent(token.resource_id)}&personal_file_id=eq.${encodeURIComponent(file.id)}&select=id&limit=1`,
-      );
-      if (items?.[0]) return;
-    }
+    if (items?.[0]) return;
   }
 
   const hasBearer = (request.headers.get("Authorization") || "")
@@ -255,6 +272,94 @@ async function canReadPersonalFile(
   if (user.id !== file.user_id) {
     throw new HttpError(404, "file not found");
   }
+}
+
+function decodeSafely(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+async function findContentOwners(
+  env: Env,
+  path: string,
+): Promise<ContentOwner[]> {
+  const ownerId = path.split("/")[0];
+  if (!ownerId) return [];
+
+  const owners: ContentOwner[] = [];
+  for (const entry of CONTENT_TABLES) {
+    const rows = await restAsService<ContentFileRow[]>(
+      env,
+      `${entry.table}?url=like.*${encodeURIComponent(ownerId)}*&select=id,url&limit=200`,
+    );
+    for (const row of rows || []) {
+      if (row.url && decodeSafely(row.url).includes(path)) {
+        owners.push({ ...entry, id: row.id });
+      }
+    }
+  }
+  return owners;
+}
+
+async function restAsUser<T>(
+  env: Env,
+  request: Request,
+  path: string,
+): Promise<T | null> {
+  if (!env.SUPABASE_ANON_KEY) {
+    throw new HttpError(500, "SUPABASE_ANON_KEY is not configured");
+  }
+  const response = await fetch(`${supabaseBase(env)}/rest/v1/${path}`, {
+    headers: {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: request.headers.get("Authorization") || "",
+    },
+  });
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) throw new HttpError(502, "content lookup failed");
+  const text = await response.text();
+  if (!text) return null;
+  return JSON.parse(text) as T;
+}
+
+async function canReadContentFiles(
+  env: Env,
+  request: Request,
+  url: URL,
+  owners: ContentOwner[],
+): Promise<void> {
+  const share = (url.searchParams.get("share") || "").trim();
+  const token = await findActiveShareToken(env, share);
+  if (
+    token &&
+    owners.some(
+      (owner) =>
+        owner.resourceType === token.resource_type &&
+        owner.id === token.resource_id,
+    )
+  ) {
+    return;
+  }
+
+  const hasBearer = (request.headers.get("Authorization") || "")
+    .toLowerCase()
+    .startsWith("bearer ");
+  if (!hasBearer) throw new HttpError(404, "file not found");
+
+  await verifyUser(env, request);
+
+  for (const owner of owners) {
+    const rows = await restAsUser<{ id: string }[]>(
+      env,
+      request,
+      `${owner.table}?id=eq.${encodeURIComponent(owner.id)}&select=id&limit=1`,
+    );
+    if (rows?.[0]) return;
+  }
+  throw new HttpError(404, "file not found");
 }
 
 async function handleFile(env: Env, request: Request): Promise<Response> {
@@ -281,12 +386,17 @@ async function handleFile(env: Env, request: Request): Promise<Response> {
     );
     const owner = objects?.[0]?.user_id;
     if (owner) {
-      const hasBearer = (request.headers.get("Authorization") || "")
-        .toLowerCase()
-        .startsWith("bearer ");
-      if (!hasBearer) throw new HttpError(404, "file not found");
-      const user = await verifyUser(env, request);
-      if (user.id !== owner) throw new HttpError(404, "file not found");
+      const contentOwners = await findContentOwners(env, path);
+      if (contentOwners.length > 0) {
+        await canReadContentFiles(env, request, url, contentOwners);
+      } else {
+        const hasBearer = (request.headers.get("Authorization") || "")
+          .toLowerCase()
+          .startsWith("bearer ");
+        if (!hasBearer) throw new HttpError(404, "file not found");
+        const user = await verifyUser(env, request);
+        if (user.id !== owner) throw new HttpError(404, "file not found");
+      }
     }
   }
 

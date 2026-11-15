@@ -34,7 +34,7 @@ export default function SearchDialog({ open, onClose }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     const [subjects, resources] = await Promise.all([
-      db.list("subjects"),
+      db.list("subject_catalog"),
       db.list("resources"),
     ]).catch(() => [[], []]);
     setAllSubjects(subjects || []);
@@ -130,7 +130,7 @@ export default function SearchDialog({ open, onClose }) {
               </p>
               {results.subjects.map((subject, index) => (
                 <button
-                  key={subject.id}
+                  key={subject.placement_id || subject.id}
                   onClick={() => handleSelect({ ...subject, _type: "subject" })}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-left transition-colors min-h-[44px] ${
                     activeIndex === index

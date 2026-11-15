@@ -162,7 +162,7 @@ export default function FileUpload({ onFileUploaded }) {
         type,
         url: result.url,
       });
-      onFileUploaded(result.url, type);
+      onFileUploaded(result.url, type, selected.name);
       toast.success("تم رفع الملف بنجاح");
     } catch (err) {
       toast.error(getUploadErrorMessage(err));
@@ -197,7 +197,7 @@ export default function FileUpload({ onFileUploaded }) {
 
   const clearFile = () => {
     setFile(null);
-    onFileUploaded("", "");
+    onFileUploaded("", "", "");
   };
 
   if (file) {

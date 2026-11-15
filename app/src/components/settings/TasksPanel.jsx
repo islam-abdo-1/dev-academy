@@ -108,7 +108,7 @@ export default function TasksPanel({ user }) {
     let active = true;
     Promise.all([
       db.list("tasks", { order: "created_date", asc: false, limit: 20 }),
-      db.list("subjects"),
+      db.list("subject_catalog"),
     ])
       .then(([taskRows, subjectRows]) => {
         if (!active) return;
