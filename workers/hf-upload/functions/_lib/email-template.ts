@@ -87,6 +87,8 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   const dateHtml = escapeHtml(dateLabel);
   const founderHtml = escapeHtml(founderName);
 
+  const brandAvatar = `${siteUrl}/logo-mark.png`;
+
   const avatarHtml = avatarUrl
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                         <tr>
@@ -97,8 +99,8 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
                       </table>`
     : `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                         <tr>
-                          <td width="48" height="48" align="center" valign="middle" bgcolor="#0b1220" style="width:48px;height:48px;background-color:#0b1220;border-radius:999px;font-family:${fontStack};font-size:18px;line-height:48px;font-weight:bold;color:#7dd3e3;">
-                            ${senderInitial}
+                          <td width="52" height="52" align="center" valign="middle">
+                            <img src="${brandAvatar}" width="48" height="48" alt="Dev Academy" style="display:block;width:48px;height:48px;border-radius:999px;background-color:#0b1220;outline:none;text-decoration:none;" />
                           </td>
                         </tr>
                       </table>`;

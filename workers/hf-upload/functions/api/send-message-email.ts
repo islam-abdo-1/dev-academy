@@ -261,14 +261,20 @@ function encodeMimeHeader(value: string): string {
   return `=?UTF-8?B?${base64Utf8(singleLine)}?=`;
 }
 
-function buildGmailRaw(email: BatchEmail): string {
+function buildGmailRaw(email: BatchEmail, messageId?: string): string {
   const boundary = `devacademy-${crypto.randomUUID()}`;
+  const msgId = messageId || `devacademy-${crypto.randomUUID()}@dev-academy.pages.dev`;
+  const unsubscribe = `mailto:${encodeURIComponent(email.to[0])}?subject=${encodeURIComponent("unsubscribe")}`;
   const headers = [
     `From: ${encodeMimeHeader(email.from)}`,
     `To: ${email.to.map(encodeMimeHeader).join(", ")}`,
     `Reply-To: ${encodeMimeHeader(email.reply_to)}`,
     `Subject: ${encodeMimeHeader(email.subject)}`,
+    `Message-ID: <${msgId}>`,
+    `List-Unsubscribe: <${unsubscribe}>`,
+    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
     `Date: ${new Date().toUTCString()}`,
+    "X-Mailer: Dev Academy Mailer",
     "MIME-Version: 1.0",
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ];
@@ -348,8 +354,9 @@ async function getGmailAccessToken(env: Env): Promise<string> {
 async function sendGmailEmail(
   email: BatchEmail,
   accessToken: string,
+  messageId?: string,
 ): Promise<BrevoResult> {
-  const raw = buildGmailRaw(email);
+  const raw = buildGmailRaw(email, messageId);
   let lastError = "email provider error";
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await fetch(
@@ -881,7 +888,7 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       GMAIL_CONCURRENCY,
       async (item, index) => {
         try {
-          return await sendGmailEmail(emails[index], accessToken);
+          return await sendGmailEmail(emails[index], accessToken, queue[index].message.id);
         } catch (error) {
           console.error("gmail request failed", error);
           return { error: "email provider unreachable" };
