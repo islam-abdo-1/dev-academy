@@ -119,7 +119,9 @@ export function getFileExtension(item: PreviewItem): string {
 
 export function isHtmlItem(item: PreviewItem): boolean {
   const fileType = previewFileType(item);
+  const mimeType = previewMimeType(item);
   if (fileType === "html" || fileType === "htm") return true;
+  if (/^text\/html$/i.test(fileType) || mimeType === "text/html") return true;
   return /\.html?($|\?)/i.test(item.url || "");
 }
 
