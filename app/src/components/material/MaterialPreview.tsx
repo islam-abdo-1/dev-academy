@@ -15,7 +15,6 @@ import {
 } from "@/lib/materialPreview";
 import { parseDriveUrl, toEmbedUrl } from "@/utils/drive";
 import { downloadStoredFile, fetchStoredFile } from "@/lib/storage/hfWorker";
-import { isWorkerFileUrl } from "@/lib/workerUrl";
 import { PreviewStatus } from "@/components/material/PreviewStatus";
 import type { Material } from "@/components/material/types";
 
@@ -266,7 +265,6 @@ function FallbackDownload({ material }: { material: Material }) {
     : safeHttpUrl(material.downloadUrl || material.url);
 
   const handleDownload = async (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!isWorkerFileUrl(href)) return;
     event.preventDefault();
     setBusy(true);
     try {

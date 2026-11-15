@@ -22,7 +22,6 @@ import {
 } from "@/lib/materialPreview";
 import { getMaterialRatingTarget } from "@/lib/materialRatings";
 import { downloadStoredFile } from "@/lib/storage/hfWorker";
-import { isWorkerFileUrl } from "@/lib/workerUrl";
 import type { Material } from "@/components/material/types";
 
 interface MaterialViewerDialogProps {
@@ -76,7 +75,6 @@ export function MaterialViewerDialog({
     (isStorageFile(material) ? downloadHref(material) : safeUrl);
   const showDownload = material.canDownload !== false && Boolean(downloadUrl);
   const handleDownload = async (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!isWorkerFileUrl(downloadUrl)) return;
     event.preventDefault();
     setDownloading(true);
     try {

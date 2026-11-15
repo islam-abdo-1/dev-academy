@@ -88,9 +88,6 @@ export async function storedFileBlobUrl(
   signal?: AbortSignal,
 ): Promise<string> {
   const normalized = normalizeWorkerFileUrl(url);
-  if (!isWorkerFileUrl(normalized)) {
-    throw new Error("رابط ملف غير صالح.");
-  }
   const response = await fetchStoredFile(normalized, { signal });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
@@ -105,9 +102,6 @@ export async function downloadStoredFile(
   filename?: string | null,
 ): Promise<void> {
   const normalized = normalizeWorkerFileUrl(url);
-  if (!isWorkerFileUrl(normalized)) {
-    throw new Error("رابط ملف غير صالح.");
-  }
   const response = await fetchStoredFile(normalized);
   if (!response.ok) {
     const body = await response.text().catch(() => "");
