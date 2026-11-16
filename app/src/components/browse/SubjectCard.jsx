@@ -7,6 +7,7 @@ import ChapterAccordion from './ChapterAccordion'
 
 const AUTO_PLACEMENT_DESCRIPTION =
   /^(?:أمن سيبراني|ذكاء اصطناعي)\s*·\s*سنة\s*[1-4]\s*·\s*ترم\s*[12]$/
+const MAJOR_LABELS = { ai: 'ذكاء اصطناعي', cybersecurity: 'أمن سيبراني' }
 const YEAR_LABELS = {
   'year-1': 'سنة 1',
   'year-2': 'سنة 2',
@@ -17,7 +18,7 @@ const SEMESTER_LABELS = { 'sem-1': 'ترم 1', 'sem-2': 'ترم 2' }
 
 function placementDescription(subject, info) {
   const line = [
-    info.label,
+    MAJOR_LABELS[subject.major] || info.label,
     YEAR_LABELS[subject.year],
     SEMESTER_LABELS[subject.semester],
   ]
