@@ -83,6 +83,25 @@ export async function fetchStoredFile(
   return fetch(normalized, { ...init, headers });
 }
 
+export async function signedStoredFileUrl(
+  url: string,
+): Promise<string | null> {
+  const normalized = normalizeWorkerFileUrl(url);
+  if (!isWorkerFileUrl(normalized)) return null;
+  try {
+    const target = new URL(normalized);
+    target.searchParams.set("sign", "1");
+    const response = await fetchStoredFile(target.toString());
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { previewUrl?: unknown };
+    const previewUrl =
+      typeof payload.previewUrl === "string" ? payload.previewUrl.trim() : "";
+    return previewUrl || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function storedFileBlobUrl(
   url: string,
   signal?: AbortSignal,

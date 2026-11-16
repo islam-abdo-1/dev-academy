@@ -43,6 +43,7 @@ export interface Material {
   title: string;
   description?: string | null;
   url: string;
+  previewUrl?: string | null;
   downloadUrl?: string | null;
   fileType?: string | null;
   mimeType?: string | null;

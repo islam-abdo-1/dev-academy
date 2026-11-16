@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PreviewStatus } from "@/components/material/PreviewStatus";
 import { MaterialTypeIcon } from "@/components/material/MaterialTypeIcon";
-import { getFileExtension, isArchiveItem } from "@/lib/materialPreview";
+import { getFileExtension, isArchiveItem, previewSrc } from "@/lib/materialPreview";
+import { fetchStoredFile } from "@/lib/storage/hfWorker";
 import type { Material } from "@/components/material/types";
 
 interface ArchiveEntry {
@@ -91,7 +92,7 @@ export function ArchiveContent({
     }
 
     try {
-      const response = await fetch(material.url);
+      const response = await fetchStoredFile(previewSrc(material));
       if (!response.ok) throw new Error("fetch failed");
       const contentLength = Number(response.headers.get("content-length") || 0);
       if (contentLength > MAX_ARCHIVE_BYTES) {
@@ -203,7 +204,7 @@ export function ArchiveContent({
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [material.url]);
+  }, [material.url, material.previewUrl]);
 
   const filteredEntries = entries.filter((entry) =>
     entry.pathname.toLowerCase().includes(query.trim().toLowerCase()),

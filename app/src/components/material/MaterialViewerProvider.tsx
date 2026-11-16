@@ -47,14 +47,6 @@ export function MaterialViewerProvider({ children }: { children: React.ReactNode
   const [saveMaterial, setSaveMaterial] = useState<Material | null>(null);
   const [shareMaterial, setShareMaterial] = useState<Material | null>(null);
   const requestRef = useRef(0);
-  const activeBlobRef = useRef<string | null>(null);
-
-  const releaseActiveBlob = useCallback(() => {
-    if (activeBlobRef.current) {
-      URL.revokeObjectURL(activeBlobRef.current);
-      activeBlobRef.current = null;
-    }
-  }, []);
 
   const openMaterial = useCallback(
     (material: Material) => {
@@ -67,7 +59,6 @@ export function MaterialViewerProvider({ children }: { children: React.ReactNode
       if (!isWorkerFileUrl(fileUrl)) {
         requestRef.current += 1;
         setPreparingMaterial(null);
-        releaseActiveBlob();
         setActiveMaterial({ ...material, url: fileUrl });
         return;
       }
@@ -76,24 +67,26 @@ export function MaterialViewerProvider({ children }: { children: React.ReactNode
       setPreparingMaterial(material);
 
       import("@/lib/storage/hfWorker")
-        .then(({ storedFileBlobUrl }) => storedFileBlobUrl(fileUrl))
-        .then((blobUrl) => {
-          if (requestId !== requestRef.current) {
-            URL.revokeObjectURL(blobUrl);
-            return;
-          }
-          releaseActiveBlob();
-          activeBlobRef.current = blobUrl;
+        .then(({ signedStoredFileUrl }) => signedStoredFileUrl(fileUrl))
+        .then((previewUrl) => {
+          if (requestId !== requestRef.current) return;
           setActiveMaterial({
             ...material,
-            url: blobUrl,
-            downloadUrl: blobUrl,
+            url: fileUrl,
+            previewUrl,
           });
+          if (!previewUrl) {
+            toast.error(
+              "تعذر تجهيز معاينة آمنة. يمكنك تحميل الملف بدلًا من المعاينة.",
+            );
+          }
         })
         .catch(() => {
-          if (requestId === requestRef.current) {
-            toast.error("تعذر تجهيز الملف. حاول مرة أخرى.");
-          }
+          if (requestId !== requestRef.current) return;
+          setActiveMaterial({ ...material, url: fileUrl, previewUrl: null });
+          toast.error(
+            "تعذر تجهيز معاينة آمنة. يمكنك تحميل الملف بدلًا من المعاينة.",
+          );
         })
         .finally(() => {
           if (requestId === requestRef.current) {
@@ -101,22 +94,20 @@ export function MaterialViewerProvider({ children }: { children: React.ReactNode
           }
         });
     },
-    [releaseActiveBlob],
+    [],
   );
 
   const closeMaterial = useCallback(() => {
     requestRef.current += 1;
     setPreparingMaterial(null);
     setActiveMaterial(null);
-    releaseActiveBlob();
-  }, [releaseActiveBlob]);
+  }, []);
 
   useEffect(
     () => () => {
       requestRef.current += 1;
-      releaseActiveBlob();
     },
-    [releaseActiveBlob],
+    [],
   );
 
   const openQuickSave = useCallback(

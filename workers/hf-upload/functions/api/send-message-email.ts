@@ -1,5 +1,10 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { renderMessageEmail } from "../_lib/email-template";
+import {
+  EMAIL_INLINE_IMAGES,
+  EMAIL_LOGO_IMAGE,
+  EMAIL_MARK_IMAGE,
+} from "../_lib/email-assets";
 
 interface Env {
   EMAIL_PROVIDER?: string;
@@ -257,41 +262,85 @@ function base64Utf8(value: string): string {
 
 function encodeMimeHeader(value: string): string {
   const singleLine = value.replace(/[\r\n]+/g, " ").trim();
+  if (!singleLine) return "";
   if (/^[\x20-\x7e]*$/.test(singleLine)) return singleLine;
-  return `=?UTF-8?B?${base64Utf8(singleLine)}?=`;
+
+  const bytes = new TextEncoder().encode(singleLine);
+  const words: string[] = [];
+  let start = 0;
+  while (start < bytes.length) {
+    // A UTF-8 encoded word must stay below 75 characters including the
+    // wrapper, and must never split a multi-byte code point.
+    let end = Math.min(start + 45, bytes.length);
+    while (end < bytes.length && end > start && (bytes[end] & 0xc0) === 0x80) {
+      end -= 1;
+    }
+    if (end === start) end = Math.min(start + 45, bytes.length);
+    let binary = "";
+    for (const byte of bytes.subarray(start, end)) {
+      binary += String.fromCharCode(byte);
+    }
+    words.push(`=?UTF-8?B?${btoa(binary)}?=`);
+    start = end;
+  }
+  return words.join("\r\n ");
 }
 
-function buildGmailRaw(email: BatchEmail, messageId?: string): string {
-  const boundary = `devacademy-${crypto.randomUUID()}`;
-  const msgId = messageId || `devacademy-${crypto.randomUUID()}@dev-academy.pages.dev`;
-  const unsubscribe = `mailto:${encodeURIComponent(email.to[0])}?subject=${encodeURIComponent("unsubscribe")}`;
+function encodeAddressHeader(value: string): string {
+  const parsed = parseSender(value);
+  if (!parsed.name) return parsed.email;
+  return `${encodeMimeHeader(parsed.name)} <${parsed.email}>`;
+}
+
+function wrapBase64(value: string): string {
+  const compact = value.replace(/\s+/g, "");
+  const lines: string[] = [];
+  for (let index = 0; index < compact.length; index += 76) {
+    lines.push(compact.slice(index, index + 76));
+  }
+  return lines.join("\r\n");
+}
+
+export function buildGmailRaw(email: BatchEmail): string {
+  const altBoundary = `devacademy-alt-${crypto.randomUUID()}`;
+  const relatedBoundary = `devacademy-rel-${crypto.randomUUID()}`;
   const headers = [
-    `From: ${encodeMimeHeader(email.from)}`,
-    `To: ${email.to.map(encodeMimeHeader).join(", ")}`,
-    `Reply-To: ${encodeMimeHeader(email.reply_to)}`,
+    `From: ${encodeAddressHeader(email.from)}`,
+    `To: ${email.to.map(encodeAddressHeader).join(", ")}`,
+    `Reply-To: ${encodeAddressHeader(email.reply_to)}`,
     `Subject: ${encodeMimeHeader(email.subject)}`,
-    `Message-ID: <${msgId}>`,
-    `List-Unsubscribe: <${unsubscribe}>`,
-    `List-Unsubscribe-Post: List-Unsubscribe=One-Click`,
     `Date: ${new Date().toUTCString()}`,
-    "X-Mailer: Dev Academy Mailer",
     "MIME-Version: 1.0",
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    `Content-Type: multipart/related; boundary="${relatedBoundary}"; type="multipart/alternative"`,
   ];
-  const body = [
-    `--${boundary}`,
+  const body: string[] = [
+    `--${relatedBoundary}`,
+    `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+    "",
+    `--${altBoundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
     "",
-    base64Utf8(email.text),
-    `--${boundary}`,
+    wrapBase64(base64Utf8(email.text)),
+    `--${altBoundary}`,
     'Content-Type: text/html; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
     "",
-    base64Utf8(email.html),
-    `--${boundary}--`,
-    "",
+    wrapBase64(base64Utf8(email.html)),
+    `--${altBoundary}--`,
   ];
+  for (const image of EMAIL_INLINE_IMAGES) {
+    body.push(
+      `--${relatedBoundary}`,
+      `Content-Type: ${image.contentType}; name="${image.filename}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-ID: <${image.contentId}>`,
+      `Content-Disposition: inline; filename="${image.filename}"`,
+      "",
+      wrapBase64(image.base64),
+    );
+  }
+  body.push(`--${relatedBoundary}--`, "");
   const mime = `${headers.join("\r\n")}\r\n\r\n${body.join("\r\n")}`;
   return base64Utf8(mime)
     .replace(/\+/g, "-")
@@ -354,9 +403,8 @@ async function getGmailAccessToken(env: Env): Promise<string> {
 async function sendGmailEmail(
   email: BatchEmail,
   accessToken: string,
-  messageId?: string,
 ): Promise<BrevoResult> {
-  const raw = buildGmailRaw(email, messageId);
+  const raw = buildGmailRaw(email);
   let lastError = "email provider error";
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await fetch(
@@ -797,6 +845,8 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
     throw new HttpError(502, "could not prepare email delivery");
   }
 
+  const publicSiteUrl = siteUrl(env);
+  const useCidImages = provider === "gmail";
   const emails: BatchEmail[] = queue.map(({ message, recipient }) => {
     const rendered = renderMessageEmail({
       subject: message.subject || "رسالة من Dev Academy",
@@ -806,8 +856,14 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       senderAvatarUrl: caller.avatar_url,
       recipientName: recipient.full_name,
       createdAt: message.created_date,
-      siteUrl: siteUrl(env),
+      siteUrl: publicSiteUrl,
       isBroadcast: Boolean(message.broadcast_id),
+      logoSrc: useCidImages
+        ? `cid:${EMAIL_LOGO_IMAGE.contentId}`
+        : `${publicSiteUrl}/email-logo.jpg`,
+      markSrc: useCidImages
+        ? `cid:${EMAIL_MARK_IMAGE.contentId}`
+        : `${publicSiteUrl}/email-mark.jpg`,
     });
     return {
       from: emailFrom(env),
@@ -888,7 +944,7 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       GMAIL_CONCURRENCY,
       async (item, index) => {
         try {
-          return await sendGmailEmail(emails[index], accessToken, queue[index].message.id);
+          return await sendGmailEmail(emails[index], accessToken);
         } catch (error) {
           console.error("gmail request failed", error);
           return { error: "email provider unreachable" };

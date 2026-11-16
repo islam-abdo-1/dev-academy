@@ -34,12 +34,25 @@ export function isSafeMediaUrl(value?: string | null): boolean {
 
 export interface PreviewItem {
   url?: string | null;
+  previewUrl?: string | null;
   title?: string | null;
   type?: string | null;
   file_type?: string | null;
   mime_type?: string | null;
   fileType?: string | null;
   mimeType?: string | null;
+}
+
+/**
+ * Returns the URL that browsers and embedded viewers should actually load.
+ * Stored files use a short-lived signed proxy URL because iframes (Office,
+ * PDF) cannot send an Authorization header; the original `url` stays
+ * untouched so file-type detection and downloads keep working.
+ */
+export function previewSrc(item: PreviewItem): string {
+  const signed = (item.previewUrl || "").trim();
+  if (signed && isSafeMediaUrl(signed)) return signed;
+  return (item.url || "").trim();
 }
 
 export function previewFileType(item: PreviewItem): string {

@@ -10,6 +10,7 @@ import {
   isSafeMediaUrl,
   isStorageFile,
   mediaKind,
+  previewSrc,
   safeHttpUrl,
   type PreviewItem,
 } from "@/lib/materialPreview";
@@ -32,7 +33,7 @@ function TextPreview({ material }: { material: Material }) {
     const controller = new AbortController();
     setText(null);
     setError(null);
-    fetchStoredFile(material.url, { signal: controller.signal })
+    fetchStoredFile(previewSrc(material), { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("fetch failed");
         return response.text();
@@ -46,7 +47,7 @@ function TextPreview({ material }: { material: Material }) {
         }
       });
     return () => controller.abort();
-  }, [material.url]);
+  }, [material.url, material.previewUrl]);
 
   if (error) return <PreviewStatus error={error} />;
   if (text === null) return <PreviewStatus loading />;
@@ -85,7 +86,7 @@ function HtmlPreview({ material }: { material: Material }) {
         }
       });
     return () => controller.abort();
-  }, [material.url]);
+  }, [material.url, material.previewUrl]);
 
   if (error) return <PreviewStatus error={error} />;
   if (html === null) return <PreviewStatus loading />;
@@ -107,7 +108,7 @@ function ImagePreview({ material }: { material: Material }) {
   return (
     <div className="flex h-full items-center justify-center overflow-auto bg-black/40 p-4">
       <img
-        src={material.url}
+        src={previewSrc(material)}
         alt={material.title}
         onError={() => setError(true)}
         className="max-h-full max-w-full object-contain"
@@ -123,7 +124,7 @@ function AudioPreview({ material }: { material: Material }) {
         <Music className="h-14 w-14" />
       </div>
       <p className="max-w-md text-center text-sm font-medium text-foreground">{material.title}</p>
-      <audio src={material.url} controls className="w-full max-w-xl" />
+      <audio src={previewSrc(material)} controls className="w-full max-w-xl" />
     </div>
   );
 }
@@ -133,13 +134,13 @@ function VideoPreview({ material }: { material: Material }) {
 
   useEffect(() => {
     setLoading(true);
-  }, [material.url]);
+  }, [material.url, material.previewUrl]);
 
   return (
     <div className="relative flex h-full items-center justify-center bg-black">
       {loading && <LoadingOverlay label="جارٍ تحميل الفيديو..." />}
       <video
-        src={material.url}
+        src={previewSrc(material)}
         controls
         playsInline
         onLoadedData={() => setLoading(false)}
@@ -164,7 +165,7 @@ function LoadingOverlay({ label }: { label: string }) {
 }
 
 function PdfPreview({ material }: { material: Material }) {
-  const src = `${material.url}#toolbar=1&navpanes=0&view=FitH`;
+  const src = `${previewSrc(material)}#toolbar=1&navpanes=0&view=FitH`;
   return (
     <iframe
       src={src}
@@ -176,10 +177,11 @@ function PdfPreview({ material }: { material: Material }) {
 }
 
 function OfficePreview({ material }: { material: Material }) {
+  const source = previewSrc(material);
   const supported =
-    material.url.startsWith("https://") || material.url.startsWith("http://");
+    source.startsWith("https://") || source.startsWith("http://");
   if (!supported) return <ExternalFallback material={material} />;
-  const src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(material.url)}`;
+  const src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(source)}`;
   return (
     <iframe
       src={src}
@@ -238,13 +240,13 @@ function YouTubePreview({ material }: { material: Material }) {
 }
 
 function ExternalFallback({ material }: { material: Material }) {
-  const safeUrl = safeHttpUrl(material.url);
+  const safeUrl = safeHttpUrl(previewSrc(material));
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
       <FileQuestion className="h-12 w-12 text-muted-foreground" />
       <div>
         <p className="text-sm font-medium text-foreground">لا يمكن عرض هذا النوع للمعاينة</p>
-        <p className="mt-1 max-w-md break-all text-xs text-muted-foreground">{safeUrl || material.url}</p>
+        <p className="mt-1 max-w-md break-all text-xs text-muted-foreground">{safeUrl || previewSrc(material)}</p>
       </div>
       {safeUrl && (
         <Button asChild>
@@ -301,9 +303,10 @@ function FallbackDownload({ material }: { material: Material }) {
 
 export function MaterialPreview({ material }: { material: Material }) {
   const kind = getPreviewKind(material);
+  const source = previewSrc(material);
 
   if (!material.url) return <PreviewStatus error="لا يوجد رابط لهذا العنصر." />;
-  if (!isSafeMediaUrl(material.url)) {
+  if (!isSafeMediaUrl(source)) {
     return <PreviewStatus error="رابط هذا العنصر غير صالح أو غير آمن." />;
   }
   if (kind === "archive") {

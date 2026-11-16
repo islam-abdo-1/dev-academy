@@ -38,3 +38,9 @@
 
 /logo-full.jpg
   Cache-Control: public, max-age=604800
+
+/email-logo.jpg
+  Cache-Control: public, max-age=604800
+
+/email-mark.jpg
+  Cache-Control: public, max-age=604800

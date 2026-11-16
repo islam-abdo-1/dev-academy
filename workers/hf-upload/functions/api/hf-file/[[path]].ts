@@ -10,6 +10,7 @@ interface Env {
   SUPABASE_ANON_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS?: string;
+  PREVIEW_SIGNING_SECRET?: string;
 }
 
 interface PagesContext {
@@ -60,7 +61,11 @@ const PREFIX = "/api/hf-file/";
 const DEFAULT_SUPABASE_URL = "https://uytyvnoqhqivvhujdxoc.supabase.co";
 const DEFAULT_HF_NAMESPACE = "devacademy-fcai";
 const DEFAULT_HF_BUCKET = "devacademy-media";
+const PREVIEW_PARAM = "preview";
+const PREVIEW_TTL_SECONDS = 12 * 60 * 60;
+const PREVIEW_MAX_TTL_SECONDS = 7 * 24 * 60 * 60;
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+let previewKeyCache: { secret: string; key: Promise<CryptoKey> } | null = null;
 
 class HttpError extends Error {
   status: number;
@@ -103,6 +108,7 @@ function json(
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
       ...corsHeaders(env, request),
     },
   });
@@ -206,6 +212,111 @@ function filePathFromUrl(url: URL): string | null {
   } catch {
     return null;
   }
+}
+
+function base64UrlEncode(value: Uint8Array): string {
+  let binary = "";
+  for (const byte of value) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlDecode(value: string): Uint8Array | null {
+  try {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+async function previewKey(env: Env): Promise<CryptoKey> {
+  const secret = (
+    env.PREVIEW_SIGNING_SECRET ||
+    env.HF_SECRET_ACCESS_KEY ||
+    env.SUPABASE_SERVICE_ROLE_KEY ||
+    ""
+  ).trim();
+  if (!secret) {
+    throw new HttpError(500, "preview signing is not configured");
+  }
+  if (previewKeyCache?.secret === secret) return previewKeyCache.key;
+  const key = crypto.subtle
+    .digest(
+      "SHA-256",
+      new TextEncoder().encode(`dev-academy:file-preview:v1:${secret}`),
+    )
+    .then((digest) =>
+      crypto.subtle.importKey(
+        "raw",
+        digest,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign", "verify"],
+      ),
+    );
+  previewKeyCache = { secret, key };
+  return key;
+}
+
+async function signPreviewToken(
+  env: Env,
+  path: string,
+  expiresAt: number,
+): Promise<string> {
+  const key = await previewKey(env);
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`${path}\n${expiresAt}`),
+  );
+  return `${expiresAt}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
+
+async function verifyPreviewToken(
+  env: Env,
+  path: string,
+  token: string,
+): Promise<boolean> {
+  const separator = token.indexOf(".");
+  if (separator <= 0) return false;
+  const expiresAt = Number(token.slice(0, separator));
+  const signature = base64UrlDecode(token.slice(separator + 1));
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    !Number.isSafeInteger(expiresAt) ||
+    expiresAt <= now ||
+    expiresAt > now + PREVIEW_MAX_TTL_SECONDS ||
+    !signature
+  ) {
+    return false;
+  }
+  const key = await previewKey(env);
+  return crypto.subtle.verify(
+    "HMAC",
+    key,
+    signature,
+    new TextEncoder().encode(`${path}\n${expiresAt}`),
+  );
+}
+
+async function signedPreviewUrl(
+  env: Env,
+  requestUrl: URL,
+  path: string,
+): Promise<string> {
+  const expiresAt = Math.floor(Date.now() / 1000) + PREVIEW_TTL_SECONDS;
+  const token = await signPreviewToken(env, path, expiresAt);
+  const url = new URL(requestUrl.toString());
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set(PREVIEW_PARAM, token);
+  return url.toString();
 }
 
 function isOwnedObjectPath(ownerId: string, key: string): boolean {
@@ -372,31 +483,54 @@ async function handleFile(env: Env, request: Request): Promise<Response> {
     throw new HttpError(404, "not found");
   }
 
-  const rows = await restAsService<PersonalFileRow[]>(
-    env,
-    `user_personal_files?storage_path=eq.${encodeURIComponent(path)}&select=id,user_id,is_public,title&limit=1`,
-  );
-  const personal = rows?.[0] ?? null;
-  if (personal) {
-    await canReadPersonalFile(env, request, url, personal);
+  const previewToken = (url.searchParams.get(PREVIEW_PARAM) || "").trim();
+  const wantsSignedPreview = url.searchParams.get("sign") === "1";
+  let personal: PersonalFileRow | null = null;
+
+  if (previewToken) {
+    if (wantsSignedPreview) {
+      throw new HttpError(400, "invalid preview request");
+    }
+    if (!(await verifyPreviewToken(env, path, previewToken))) {
+      throw new HttpError(403, "preview link expired");
+    }
   } else {
-    const objects = await restAsService<StorageObjectRow[]>(
+    const rows = await restAsService<PersonalFileRow[]>(
       env,
-      `storage_objects?object_path=eq.${encodeURIComponent(path)}&select=user_id&limit=1`,
+      `user_personal_files?storage_path=eq.${encodeURIComponent(path)}&select=id,user_id,is_public,title&limit=1`,
     );
-    const owner = objects?.[0]?.user_id;
-    if (owner) {
-      const contentOwners = await findContentOwners(env, path);
-      if (contentOwners.length > 0) {
-        await canReadContentFiles(env, request, url, contentOwners);
-      } else {
-        const hasBearer = (request.headers.get("Authorization") || "")
-          .toLowerCase()
-          .startsWith("bearer ");
-        if (!hasBearer) throw new HttpError(404, "file not found");
-        const user = await verifyUser(env, request);
-        if (user.id !== owner) throw new HttpError(404, "file not found");
+    personal = rows?.[0] ?? null;
+    if (personal) {
+      await canReadPersonalFile(env, request, url, personal);
+    } else {
+      const objects = await restAsService<StorageObjectRow[]>(
+        env,
+        `storage_objects?object_path=eq.${encodeURIComponent(path)}&select=user_id&limit=1`,
+      );
+      const owner = objects?.[0]?.user_id;
+      if (owner) {
+        const contentOwners = await findContentOwners(env, path);
+        if (contentOwners.length > 0) {
+          await canReadContentFiles(env, request, url, contentOwners);
+        } else {
+          const hasBearer = (request.headers.get("Authorization") || "")
+            .toLowerCase()
+            .startsWith("bearer ");
+          if (!hasBearer) throw new HttpError(404, "file not found");
+          const user = await verifyUser(env, request);
+          if (user.id !== owner) throw new HttpError(404, "file not found");
+        }
       }
+    }
+
+    if (wantsSignedPreview) {
+      const previewUrl = await signedPreviewUrl(env, url, path);
+      return json(
+        { previewUrl, expiresIn: PREVIEW_TTL_SECONDS },
+        200,
+        env,
+        request,
+      );
     }
   }
 
@@ -456,11 +590,15 @@ async function handleFile(env: Env, request: Request): Promise<Response> {
   );
   headers.set(
     "Cache-Control",
-    personal && !personal.is_public
-      ? "private, max-age=0, must-revalidate"
-      : "public, max-age=3600",
+    previewToken
+      ? "private, no-store"
+      : personal && !personal.is_public
+        ? "private, max-age=0, must-revalidate"
+        : "public, max-age=3600",
   );
   headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "SAMEORIGIN");
+  headers.set("Content-Security-Policy", "frame-ancestors 'self'");
   for (const [name, value] of Object.entries(corsHeaders(env, request))) {
     headers.set(name, value);
   }

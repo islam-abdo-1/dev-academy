@@ -18,6 +18,7 @@ import {
   downloadHref,
   isStorageFile,
   isSupabaseStorageHtml,
+  previewSrc,
   safeHttpUrl,
 } from "@/lib/materialPreview";
 import { getMaterialRatingTarget } from "@/lib/materialRatings";
@@ -65,7 +66,7 @@ export function MaterialViewerDialog({
 
   const ratingTarget = getMaterialRatingTarget(material);
   const blobUrl = material.url?.startsWith("blob:") ? material.url : "";
-  const safeUrl = safeHttpUrl(material.url) || blobUrl;
+  const safeUrl = safeHttpUrl(previewSrc(material)) || blobUrl;
   const declaredDownload = material.downloadUrl
     ? safeHttpUrl(material.downloadUrl) ||
       (material.downloadUrl.startsWith("blob:") ? material.downloadUrl : "")
