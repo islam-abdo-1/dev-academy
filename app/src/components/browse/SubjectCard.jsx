@@ -5,6 +5,27 @@ import { db } from '@/lib/api'
 import { Skeleton } from '@/components/ui/skeleton'
 import ChapterAccordion from './ChapterAccordion'
 
+const AUTO_PLACEMENT_DESCRIPTION =
+  /^(?:أمن سيبراني|ذكاء اصطناعي)\s*·\s*سنة\s*[1-4]\s*·\s*ترم\s*[12]$/
+const YEAR_LABELS = {
+  'year-1': 'سنة 1',
+  'year-2': 'سنة 2',
+  'year-3': 'سنة 3',
+  'year-4': 'سنة 4',
+}
+const SEMESTER_LABELS = { 'sem-1': 'ترم 1', 'sem-2': 'ترم 2' }
+
+function placementDescription(subject, info) {
+  const line = [
+    info.label,
+    YEAR_LABELS[subject.year],
+    SEMESTER_LABELS[subject.semester],
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return line
+}
+
 export default function SubjectCard({ subject, info }) {
   const [expanded, setExpanded] = useState(false)
   const [chapters, setChapters] = useState([])
@@ -33,6 +54,10 @@ export default function SubjectCard({ subject, info }) {
   }, [expanded, subject.id])
 
   const sorted = [...chapters].sort((a, b) => (a.order || 0) - (b.order || 0))
+  const description =
+    subject.description && !AUTO_PLACEMENT_DESCRIPTION.test(subject.description)
+      ? subject.description
+      : placementDescription(subject, info)
 
   return (
     <motion.div
@@ -64,8 +89,8 @@ export default function SubjectCard({ subject, info }) {
               </span>
             )}
           </div>
-          {subject.description && (
-            <p className="text-muted-foreground text-sm truncate mt-0.5">{subject.description}</p>
+          {description && (
+            <p className="text-muted-foreground text-sm truncate mt-0.5">{description}</p>
           )}
         </div>
         {subject.credits && (
@@ -92,8 +117,8 @@ export default function SubjectCard({ subject, info }) {
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 border-t" style={{ borderColor: info.border }}>
-              {subject.description && (
-                <p className="text-muted-foreground text-sm pt-3 mb-4">{subject.description}</p>
+              {description && (
+                <p className="text-muted-foreground text-sm pt-3 mb-4">{description}</p>
               )}
               {loading ? (
                 <div className="space-y-2 pt-2">
