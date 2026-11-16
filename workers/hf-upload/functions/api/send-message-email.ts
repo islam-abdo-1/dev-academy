@@ -4,6 +4,7 @@ import {
   EMAIL_INLINE_IMAGES,
   EMAIL_LOGO_IMAGE,
   EMAIL_MARK_IMAGE,
+  type EmailInlineImage,
 } from "../_lib/email-assets";
 
 interface Env {
@@ -79,6 +80,7 @@ interface BatchEmail {
   html: string;
   text: string;
   reply_to: string;
+  inlineImages?: EmailInlineImage[];
 }
 
 const DEFAULT_SUPABASE_URL = "https://uytyvnoqhqivvhujdxoc.supabase.co";
@@ -260,6 +262,63 @@ function base64Utf8(value: string): string {
   return btoa(binary);
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+const AVATAR_MAX_BYTES = 1_500_000;
+const AVATAR_TIMEOUT_MS = 8000;
+
+/**
+ * Downloads the sender photo so Gmail can render it as an inline CID part.
+ * Remote images are blocked by Gmail for unknown senders, which is why the
+ * photo (and logo) appeared broken while the message landed in spam.
+ */
+async function fetchInlineAvatar(
+  url: string,
+): Promise<EmailInlineImage | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), AVATAR_TIMEOUT_MS);
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+    if (!response.ok) return null;
+    const contentType = (response.headers.get("content-type") || "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (!contentType.startsWith("image/")) return null;
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength === 0 || buffer.byteLength > AVATAR_MAX_BYTES) {
+      return null;
+    }
+    const extension =
+      contentType === "image/png"
+        ? "png"
+        : contentType === "image/webp"
+          ? "webp"
+          : contentType === "image/gif"
+            ? "gif"
+            : "jpg";
+    return {
+      contentId: "sender-avatar",
+      filename: `sender-avatar.${extension}`,
+      contentType,
+      base64: bytesToBase64(new Uint8Array(buffer)),
+    };
+  } catch (error) {
+    console.error("sender avatar download failed", error);
+    return null;
+  }
+}
+
 function encodeMimeHeader(value: string): string {
   const singleLine = value.replace(/[\r\n]+/g, " ").trim();
   if (!singleLine) return "";
@@ -304,6 +363,7 @@ function wrapBase64(value: string): string {
 export function buildGmailRaw(email: BatchEmail): string {
   const altBoundary = `devacademy-alt-${crypto.randomUUID()}`;
   const relatedBoundary = `devacademy-rel-${crypto.randomUUID()}`;
+  const images = email.inlineImages?.length ? email.inlineImages : EMAIL_INLINE_IMAGES;
   const headers = [
     `From: ${encodeAddressHeader(email.from)}`,
     `To: ${email.to.map(encodeAddressHeader).join(", ")}`,
@@ -329,7 +389,7 @@ export function buildGmailRaw(email: BatchEmail): string {
     wrapBase64(base64Utf8(email.html)),
     `--${altBoundary}--`,
   ];
-  for (const image of EMAIL_INLINE_IMAGES) {
+  for (const image of images) {
     body.push(
       `--${relatedBoundary}`,
       `Content-Type: ${image.contentType}; name="${image.filename}"`,
@@ -847,6 +907,17 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
 
   const publicSiteUrl = siteUrl(env);
   const useCidImages = provider === "gmail";
+  const senderAvatarUrl =
+    caller.avatar_url && /^https?:\/\//i.test(caller.avatar_url)
+      ? caller.avatar_url
+      : null;
+  const inlineAvatar =
+    useCidImages && senderAvatarUrl
+      ? await fetchInlineAvatar(senderAvatarUrl)
+      : null;
+  const inlineImages = useCidImages
+    ? [...EMAIL_INLINE_IMAGES, ...(inlineAvatar ? [inlineAvatar] : [])]
+    : [];
   const emails: BatchEmail[] = queue.map(({ message, recipient }) => {
     const rendered = renderMessageEmail({
       subject: message.subject || "رسالة من Dev Academy",
@@ -864,6 +935,10 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       markSrc: useCidImages
         ? `cid:${EMAIL_MARK_IMAGE.contentId}`
         : `${publicSiteUrl}/email-mark.jpg`,
+      avatarSrc:
+        useCidImages && inlineAvatar
+          ? `cid:${inlineAvatar.contentId}`
+          : senderAvatarUrl,
     });
     return {
       from: emailFrom(env),
@@ -872,6 +947,7 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       html: rendered.html,
       text: rendered.text,
       reply_to: message.from_email,
+      inlineImages,
     };
   });
 

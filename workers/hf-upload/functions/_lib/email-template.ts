@@ -15,6 +15,11 @@ export interface MessageEmailInput {
    */
   logoSrc?: string | null;
   markSrc?: string | null;
+  /**
+   * Sender photo shown in the "المرسل" card. Accepts an HTTPS URL or a
+   * `cid:` reference. Falls back to the platform mark when absent.
+   */
+  avatarSrc?: string | null;
 }
 
 export interface RenderedMessageEmail {
@@ -92,13 +97,15 @@ export function renderMessageEmail(input: MessageEmailInput): RenderedMessageEma
   const founderHtml = escapeHtml(founderName);
   const safeLogoSrc = escapeHtml(logoSrc);
   const safeMarkSrc = escapeHtml(markSrc);
+  const avatarSrc = (input.avatarSrc || "").trim() || markSrc;
+  const safeAvatarSrc = escapeHtml(avatarSrc);
   const safeDashboardUrl = escapeHtml(dashboardUrl);
   const safeSiteUrl = escapeHtml(siteUrl);
 
   const avatarHtml = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
                         <tr>
                           <td width="52" height="52" align="center" valign="middle">
-                            <img src="${safeMarkSrc}" width="48" height="48" alt="Dev Academy" style="display:block;width:48px;height:48px;border:0;border-radius:999px;background-color:#000000;outline:none;text-decoration:none;" />
+                            <img src="${safeAvatarSrc}" width="48" height="48" alt="${senderName}" style="display:block;width:48px;height:48px;border:0;border-radius:999px;background-color:#000000;object-fit:cover;outline:none;text-decoration:none;" />
                           </td>
                         </tr>
                       </table>`;
