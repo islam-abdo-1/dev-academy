@@ -90,6 +90,7 @@ const MAX_BATCH = 50;
 const MAX_ATTEMPTS = 3;
 const STALE_SENDING_MS = 10 * 60 * 1000;
 const BREVO_CONCURRENCY = 5;
+const RESEND_CONCURRENCY = 3;
 // Gmail allows ~250 quota units/second per user and messages.send costs 100.
 // Two workers with a short pause stay under that ceiling.
 const GMAIL_CONCURRENCY = 2;
@@ -504,6 +505,78 @@ async function sendGmailEmail(
   return { error: lastError };
 }
 
+/**
+ * Resend's batch endpoint rejects inline images, so messages with CID assets
+ * go through the single-email endpoint where `attachments` supports
+ * `content_id`. Sending one by one also keeps per-message failures isolated.
+ */
+async function sendResendEmail(
+  env: Env,
+  email: BatchEmail,
+  messageId: string,
+): Promise<BrevoResult> {
+  const idempotencyKey = `devacademy-${(
+    await sha256Hex(`resend:${messageId}`)
+  ).slice(0, 48)}`;
+  const attachments = (email.inlineImages || []).map((image) => ({
+    filename: image.filename,
+    content: image.base64,
+    content_type: image.contentType,
+    content_id: image.contentId,
+  }));
+  const payload = {
+    from: email.from,
+    to: email.to,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+    reply_to: email.reply_to,
+    ...(attachments.length ? { attachments } : {}),
+  };
+  let lastError = "email provider error";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await response.text();
+    if (response.ok) {
+      let providerId = "";
+      try {
+        const parsed = text ? (JSON.parse(text) as { id?: string }) : {};
+        providerId = String(parsed.id || "");
+      } catch {
+        providerId = "";
+      }
+      return { providerId };
+    }
+    let providerMessage = "";
+    try {
+      const parsed = text
+        ? (JSON.parse(text) as { message?: string; name?: string })
+        : {};
+      providerMessage = parsed.message || parsed.name || "";
+    } catch {
+      providerMessage = text;
+    }
+    lastError = cleanError(providerMessage || `resend error ${response.status}`);
+    if (response.status === 429 || response.status >= 500) {
+      await sleep(500 * (attempt + 1));
+      continue;
+    }
+    console.error("resend send failed", response.status, text.slice(0, 500));
+    return { error: lastError };
+  }
+  console.error("resend send exhausted retries", lastError);
+  return { error: lastError };
+}
+
 async function restAsService<T>(
   env: Env,
   path: string,
@@ -906,7 +979,7 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
   }
 
   const publicSiteUrl = siteUrl(env);
-  const useCidImages = provider === "gmail";
+  const useCidImages = provider === "gmail" || provider === "resend";
   const senderAvatarUrl =
     caller.avatar_url && /^https?:\/\//i.test(caller.avatar_url)
       ? caller.avatar_url
@@ -955,47 +1028,22 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
   const providerErrors: Array<string | null> = new Array(queue.length).fill(null);
 
   if (provider === "resend") {
-    const idempotencyKey = `devacademy-${(
-      await sha256Hex(queue.map((item) => item.message.id).sort().join(","))
-    ).slice(0, 48)}`;
-
-    try {
-      const response = await fetch("https://api.resend.com/emails/batch", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify(emails),
-      });
-      const text = await response.text();
-      if (!response.ok) {
-        console.error("resend batch failed", response.status, text.slice(0, 500));
-        throw new HttpError(502, "email provider rejected the request");
-      }
-      const parsed = text ? (JSON.parse(text) as { data?: Array<{ id?: string }> }) : {};
-      const ids = Array.isArray(parsed.data)
-        ? parsed.data.map((item) => String(item?.id || ""))
-        : [];
-      queue.forEach((_, index) => {
-        providerIds[index] = ids[index] || null;
-      });
-    } catch (error) {
-      console.error("resend request failed", error);
-      const message =
-        error instanceof HttpError ? error.message : "email provider unreachable";
-      await Promise.allSettled(
-        queue.map((item) =>
-          patchDelivery(env, item.message.id, {
-            status: "failed",
-            error: cleanError(message),
-            updated_date: new Date().toISOString(),
-          }),
-        ),
-      );
-      throw new HttpError(502, message);
-    }
+    const outcome = await mapWithConcurrency(
+      queue,
+      RESEND_CONCURRENCY,
+      async (item, index) => {
+        try {
+          return await sendResendEmail(env, emails[index], item.message.id);
+        } catch (error) {
+          console.error("resend request failed", error);
+          return { error: "email provider unreachable" };
+        }
+      },
+    );
+    outcome.forEach((item, index) => {
+      providerIds[index] = item.providerId || null;
+      providerErrors[index] = item.error || null;
+    });
   } else if (provider === "gmail") {
     let accessToken: string;
     try {
