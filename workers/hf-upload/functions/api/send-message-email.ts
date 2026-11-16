@@ -1008,10 +1008,11 @@ async function handleSend(env: Env, request: Request): Promise<Response> {
       markSrc: useCidImages
         ? `cid:${EMAIL_MARK_IMAGE.contentId}`
         : `${publicSiteUrl}/email-mark.jpg`,
-      avatarSrc:
-        useCidImages && inlineAvatar
+      avatarSrc: useCidImages
+        ? inlineAvatar
           ? `cid:${inlineAvatar.contentId}`
-          : senderAvatarUrl,
+          : null
+        : senderAvatarUrl,
     });
     return {
       from: emailFrom(env),
