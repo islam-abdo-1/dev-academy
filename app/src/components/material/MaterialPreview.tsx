@@ -72,7 +72,7 @@ function HtmlPreview({ material }: { material: Material }) {
     const controller = new AbortController();
     setHtml(null);
     setError(null);
-    fetchStoredFile(material.url, { signal: controller.signal })
+    fetchStoredFile(previewSrc(material), { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("fetch failed");
         return response.text();
